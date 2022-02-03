@@ -45,10 +45,12 @@ glm::dvec3 RayTracer::trace(double x, double y)
 	scene->getCamera().rayThrough(x,y,r);
 	double dummy;
 	glm::dvec3 ret = traceRay(r, glm::dvec3(1.0,1.0,1.0), traceUI->getDepth(), dummy);
+	// clamp color
 	ret = glm::clamp(ret, 0.0, 1.0);
 	return ret;
 }
 
+// trace pixel thru window coord
 glm::dvec3 RayTracer::tracePixel(int i, int j)
 {
 	glm::dvec3 col(0,0,0);
@@ -58,6 +60,7 @@ glm::dvec3 RayTracer::tracePixel(int i, int j)
 	double x = double(i)/double(buffer_width);
 	double y = double(j)/double(buffer_height);
 
+	// update pixel buffer w color
 	unsigned char *pixel = buffer.data() + ( i + j * buffer_width ) * 3;
 	col = trace(x, y);
 
@@ -90,7 +93,6 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 		// Instead of just returning the result of shade(), add some
 		// more steps: add in the contributions from reflected and refracted
 		// rays.
-
 		const Material& m = i.getMaterial();
 		colorC = m.shade(scene.get(), r, i);
 	} else {
@@ -225,6 +227,12 @@ void RayTracer::traceImage(int w, int h)
 	//
 	//       An asynchronous traceImage lets the GUI update your results
 	//       while rendering.
+
+	for(int i = 0; i < w; i++){
+		for(int j = 0; j < h; j++){
+			tracePixel(i, j);
+		}
+	}
 }
 
 int RayTracer::aaImage()

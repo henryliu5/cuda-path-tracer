@@ -4,6 +4,7 @@
 #include <string.h>
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 #include "../ui/TraceUI.h"
 extern TraceUI* traceUI;
 
@@ -96,8 +97,61 @@ bool TrimeshFace::intersectLocal(ray& r, isect& i) const
 	// YOUR CODE HERE
 	//
 	// FIXME: Add ray-trimesh intersection
+	// cout << "intersectLocal" << endl;
+	glm::dvec3 a_coords = parent->vertices[ids[0]];
+	glm::dvec3 b_coords = parent->vertices[ids[1]];
+	glm::dvec3 c_coords = parent->vertices[ids[2]];
+	
+	// Ray - plane intersection
+	double numerator = -glm::dot(r.getPosition() - a_coords, normal);
+	double denominator = glm::dot(r.getDirection(), normal);
 
-	return false;
+	if(denominator == 0){
+		cerr << "0" << endl;
+	}
+
+	double t = numerator / denominator;
+
+
+	glm::dvec3 p = r.getPosition() + r.getDirection() * t;
+	
+	// cout << p.x << " " << p.y << " " << p.z << endl;
+
+	glm::dvec3 vba = (b_coords - a_coords);
+	glm::dvec3 vcb = (c_coords - b_coords);
+	glm::dvec3 vac = (a_coords - c_coords);
+
+	glm::dvec3 vpa = (p - a_coords);
+	glm::dvec3 vpb = (p - b_coords);
+	glm::dvec3 vpc = (p - c_coords);
+
+    bool res = 	glm::dot(glm::cross(vba, vpa), normal) >= 0 &&
+			glm::dot(glm::cross(vcb, vpb), normal) >= 0 &&
+			glm::dot(glm::cross(vac, vpc), normal) >= 0;
+	
+	// if(res){
+	// 	cout << "TRUE" << endl;
+	// } else{
+	// 	cout << "FALSE" << endl;
+	// }
+
+
+	if(res){
+		// Do areas
+		double alpha = glm::length(glm::cross(b_coords - p, c_coords - p));
+		double beta = glm::length(glm::cross(p - a_coords, c_coords - a_coords));
+		double gamma = glm::length(glm::cross(b_coords - a_coords, p - a_coords));
+		double denom = glm::length(glm::cross(vba, c_coords - a_coords));
+
+		alpha /= denom;
+		beta /= denom;
+		gamma /= denom;
+		i.setT(gamma);
+		i.setUVCoordinates(glm::dvec2(alpha, beta));
+		i.setObject(this);
+	}
+
+    return res;
 }
 
 // Once all the verts and faces are loaded, per vertex normals can be

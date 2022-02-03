@@ -8,7 +8,14 @@ const Material& isect::getMaterial() const
 {
 	return material ? *material : obj->getMaterial();
 }
-
+/**
+ * @brief Construct a new ray object
+ * 
+ * @param pp position
+ * @param dd direction
+ * @param w attenuation
+ * @param tt type
+ */
 ray::ray(const glm::dvec3& pp,
 	 const glm::dvec3& dd,
 	 const glm::dvec3& w,
