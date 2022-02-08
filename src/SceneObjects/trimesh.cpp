@@ -129,13 +129,6 @@ bool TrimeshFace::intersectLocal(ray& r, isect& i) const
 			glm::dot(glm::cross(vcb, vpb), normal) >= 0 &&
 			glm::dot(glm::cross(vac, vpc), normal) >= 0;
 	
-	// if(res){
-	// 	cout << "TRUE" << endl;
-	// } else{
-	// 	cout << "FALSE" << endl;
-	// }
-
-
 	if(res){
 		// Do areas
 		double alpha = glm::length(glm::cross(b_coords - p, c_coords - p));
@@ -150,8 +143,14 @@ bool TrimeshFace::intersectLocal(ray& r, isect& i) const
 		// i.setT(gamma);
 		i.setUVCoordinates(glm::dvec2(alpha, beta));
 		i.setObject(this);
-		i.setMaterial(getMaterial());
-		i.setN(normal);
+		
+		if(this->parent->vertNorms){
+			i.setN(alpha * this->parent->normals[ids[0]] + beta * this->parent->normals[ids[1]] + (1-alpha-beta) * this->parent->normals[ids[2]]);
+			i.setMaterial(alpha * *this->parent->materials[ids[0]] += beta * *this->parent->materials[ids[1]] += (1 - alpha - beta) * *this->parent->materials[ids[2]]);
+		} else{
+			i.setMaterial(getMaterial());
+			i.setN(normal);
+		}
 		i.setT(t);
 	}
 
