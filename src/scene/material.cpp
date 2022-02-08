@@ -38,14 +38,38 @@ glm::dvec3 Material::shade(Scene* scene, const ray& r, const isect& i) const
 	// you'll want to use code that looks something
 	// like this:
 	//
-	// for ( const auto& pLight : scene->getAllLights() )
-	// {
-	//              // pLight has type unique_ptr<Light>
-	// 		.
-	// 		.
-	// 		.
-	// }
-	return kd(i);
+	glm::dvec3 sum;
+	sum *= 0;
+	for ( const auto& pLight : scene->getAllLights() )
+	{
+		// TODO sus?
+		glm::dvec3 i_in = pLight->getColor();
+
+		// Ambient
+		glm::dvec3 ambient = ka(i) * scene->ambient();
+		// cout << ambient[0] << " " << ambient[1] << " " << ambient[2] << endl;
+
+		// Diffuse
+		glm::dvec3 l = pLight->getDirection(r.at(i));
+		double m = max(glm::dot(l, i.getN()), 0.0);
+
+		glm::dvec3 diffuse = kd(i) * m * i_in;
+
+		// Specular
+		glm::dvec3 v = -r.getDirection();
+
+		glm::dvec3 w_in = -l;
+		glm::dvec3 w_normal = glm::dot(w_in, i.getN()) * i.getN();
+		glm::dvec3 w_tan = w_in - w_normal;
+		glm::dvec3 w_ref = -w_normal + w_tan;
+		w_ref = glm::normalize(w_ref);
+
+		double m2 = max(glm::dot(v, w_ref), 0.0);
+		glm::dvec3 specular = ks(i) * pow(m2, i.getMaterial().shininess(i)) * i_in;
+
+		sum += ambient + diffuse + specular;
+	}
+	return sum;
 }
 
 TextureMap::TextureMap(string filename)

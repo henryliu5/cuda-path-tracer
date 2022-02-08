@@ -146,9 +146,13 @@ bool TrimeshFace::intersectLocal(ray& r, isect& i) const
 		alpha /= denom;
 		beta /= denom;
 		gamma /= denom;
-		i.setT(gamma);
+		// TODO sus?
+		// i.setT(gamma);
 		i.setUVCoordinates(glm::dvec2(alpha, beta));
 		i.setObject(this);
+		i.setMaterial(getMaterial());
+		i.setN(normal);
+		i.setT(t);
 	}
 
     return res;
