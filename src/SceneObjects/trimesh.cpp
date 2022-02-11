@@ -147,17 +147,19 @@ bool TrimeshFace::intersectLocal(ray& r, isect& i) const
 		// i.setT(gamma);
 		i.setUVCoordinates(glm::dvec2(alpha, beta));
 		i.setObject(this->parent);
-		
+
 		if(this->parent->vertNorms){
 			i.setN(alpha * this->parent->normals[ids[0]] + beta * this->parent->normals[ids[1]] + (1-alpha-beta) * this->parent->normals[ids[2]]);
-			i.setMaterial(alpha * *this->parent->materials[ids[0]] += beta * *this->parent->materials[ids[1]] += (1 - alpha - beta) * *this->parent->materials[ids[2]]);
-		} else{
-			i.setMaterial(getMaterial());
+		} else{	
 			i.setN(normal);
+		}
+		if(this->parent->materials.size() != 0){
+			i.setMaterial(alpha * *this->parent->materials[ids[0]] += beta * *this->parent->materials[ids[1]] += (1 - alpha - beta) * *this->parent->materials[ids[2]]);
+		} else {
+			i.setMaterial(getMaterial());
 		}
 		i.setT(t);
 	}
-
     return res;
 }
 

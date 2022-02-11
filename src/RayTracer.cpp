@@ -117,12 +117,12 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 				double n1;
 				double n2;
 				glm::dvec3 trans = {1,1,1};
-				if(r.currentIndex == 1.000293){
+				if(r.currentIndex == 1.0){
 					n1 = r.currentIndex;
 					n2 = m.index(i);
 				} else{
 					n1 = m.index(i);
-					n2 = 1.000293;
+					n2 = 1.0;
 					normal *= -1;
 					trans = glm::pow(m.kt(i), {i.getT(),i.getT(),i.getT()});
 				}
@@ -285,9 +285,35 @@ void RayTracer::traceImage(int w, int h)
 	//       An asynchronous traceImage lets the GUI update your results
 	//       while rendering.
 
+	int subpixels = samples;
+	cout << "subpixels: " << subpixels << endl;
 	for(int i = 0; i < w; i++){
 		for(int j = 0; j < h; j++){
-			tracePixel(i, j);
+			double sumR = 0.0;
+			double sumG = 0.0;
+			double sumB = 0.0;
+
+			for(int subX = i * subpixels; subX < i * subpixels + subpixels; subX++){
+				for(int subY = j * subpixels; subY < j * subpixels + subpixels; subY++){
+					glm::dvec3 col(0,0,0);
+
+					if( ! sceneLoaded() ) return;
+
+					double x = double(subX)/double(buffer_width*subpixels);
+					double y = double(subY)/double(buffer_height*subpixels);
+			
+					col = trace(x, y);
+
+					sumR += (col[0]);
+					sumG += (col[1]);
+					sumB += (col[2]);		
+				}
+			}
+			// update pixel buffer w color
+			unsigned char *pixel = buffer.data() + ( i + j * buffer_width ) * 3;
+			pixel[0] = (int)( 255.0 * sumR / (subpixels * subpixels));
+			pixel[1] = (int)( 255.0 * sumG / (subpixels * subpixels));
+			pixel[2] = (int)( 255.0 * sumB / (subpixels * subpixels));
 		}
 	}
 }
