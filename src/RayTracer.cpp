@@ -95,6 +95,63 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 		// rays.
 		const Material& m = i.getMaterial();
 		colorC = m.shade(scene.get(), r, i);
+		if(debugMode) cout << "tracing" << endl;
+		if(depth > 0){
+			if(m.Refl()){
+				if(debugMode) cout << "shooting reflection" << endl;
+				glm::dvec3 w_in = r.getDirection();
+				glm::dvec3 w_normal = glm::dot(w_in, i.getN()) * i.getN();
+				glm::dvec3 w_tan = w_in - w_normal;
+				glm::dvec3 w_ref = -w_normal + w_tan;
+				w_ref = glm::normalize(w_ref);
+				ray reflect(r.at(i), w_ref, r.getAtten(), ray::REFLECTION);
+				double dum;
+				glm::dvec3 temp = traceRay(reflect, glm::dvec3(1.0,1.0,1.0), depth - 1, dum);
+				colorC += m.kr(i) * temp;
+			}
+			if(m.Trans()){
+				if(debugMode) cout << "shooting refraction" << endl;
+				glm::dvec3 w_in = r.getDirection();
+				glm::dvec3 normal = i.getN();
+
+				double n1;
+				double n2;
+				glm::dvec3 trans = {1,1,1};
+				if(r.currentIndex == 1.000293){
+					n1 = r.currentIndex;
+					n2 = m.index(i);
+				} else{
+					n1 = m.index(i);
+					n2 = 1.000293;
+					normal *= -1;
+					trans = glm::pow(m.kt(i), {i.getT(),i.getT(),i.getT()});
+				}
+				
+				double n = n1/n2;
+				if(debugMode) cout << "n1: " << n1 << " n2: " << n2 << endl;
+				w_in = -glm::normalize(w_in);
+				double cosI = glm::dot(normal, w_in);
+				double x = 1 - n*n * (1-cosI*cosI);
+				if(x >= 0){
+					double cosT = glm::sqrt(x);
+
+					glm::dvec3 refrac = (n*cosI - cosT) * normal - n*w_in;
+
+					if(debugMode) cout << "refrac: " << refrac << endl;
+					ray r2(r.at(i), glm::normalize(refrac), r.getAtten(), ray::REFRACTION);
+					r2.currentIndex = n2;
+
+					double dum;
+					glm::dvec3 temp = traceRay(r2, glm::dvec3(1.0,1.0,1.0), depth - 1, dum);
+					if(debugMode) cout << "temp : " << temp << endl;
+					colorC += trans * temp;		
+					if(debugMode) cout << "colorC: " << colorC << endl;
+				}
+                        }
+
+		}
+
+
 	} else {
 		// No intersection.  This ray travels to infinity, so we color
 		// it according to the background color, which in this (simple) case

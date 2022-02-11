@@ -23,9 +23,10 @@ ray::ray(const glm::dvec3& pp,
         : p(pp), d(dd), atten(w), t(tt)
 {
 	TraceUI::addRay(ray_thread_id);
+	currentIndex = 1.000293;
 }
 
-ray::ray(const ray& other) : p(other.p), d(other.d), atten(other.atten)
+ray::ray(const ray& other) : p(other.p), d(other.d), atten(other.atten), t(other.t)
 {
 	TraceUI::addRay(ray_thread_id);
 }

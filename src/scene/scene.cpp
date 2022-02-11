@@ -135,6 +135,47 @@ bool Scene::intersect(ray& r, isect& i) const {
 	return have_one;
 }
 
+bool Scene::intersect2(ray& r, isect& i, isect& i2) const
+{
+    double tmin = 0.0;
+    double tmax = 0.0;
+    bool have_one = false;
+    bool have_one2 = false;
+    for (const auto& obj : objects) {
+        isect cur;
+        if (obj->intersect(r, cur)) {
+            if (!have_one || (cur.getT() < i.getT())) {
+                i = cur;
+                have_one = true;
+
+				i2 = isect();
+				have_one2 = false;
+                // Make second ray same direction
+                ray r2(r.at(i) + r.getDirection() * 1e-6, r.getDirection(), r.getAtten(), r.type());
+
+				// cout << "int 1" << endl;
+                if (obj->intersect(r2, cur)) {
+					// cout << "int 2" << endl;
+                    if (!have_one2 || (cur.getT() < i2.getT())) {
+						// cout << "setting 2" << endl;
+                        i2 = cur;
+                        have_one2 = true;
+                    }
+                }
+            }
+        }
+    }
+    if (!have_one)
+        i.setT(1000.0);
+    if (!have_one2)
+        i2.setT(1000.0);
+    // if debugging,
+    if (TraceUI::m_debug) {
+        addToIntersectCache(std::make_pair(new ray(r), new isect(i)));
+    }
+    return have_one;
+}
+
 TextureMap* Scene::getTexture(string name) {
 	auto itr = textureCache.find(name);
 	if (itr == textureCache.end()) {

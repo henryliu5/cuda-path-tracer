@@ -48,6 +48,7 @@ public:
 	void setPosition(const glm::dvec3& pp) { p = pp; }
 	void setDirection(const glm::dvec3& dd) { d = dd; }
 
+	double currentIndex;
 private:
 	glm::dvec3 p;
 	glm::dvec3 d;
@@ -75,6 +76,7 @@ public:
 	}
 
 	void setObject(const SceneObject* o) { obj = o; }
+	const SceneObject* getObject() const { return obj; }
 
 	// Get/Set Time of flight
 	void setT(double tt) { t = tt; }

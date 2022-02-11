@@ -232,6 +232,7 @@ public:
 	void add(Light* light);
 
 	bool intersect(ray& r, isect& i) const;
+	bool intersect2(ray& r, isect& i, isect& i2) const;
 
 	auto beginLights() const { return lights.begin(); }
 	auto endLights() const { return lights.end(); }

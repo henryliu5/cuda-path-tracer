@@ -38,15 +38,17 @@ glm::dvec3 Material::shade(Scene* scene, const ray& r, const isect& i) const
 	// you'll want to use code that looks something
 	// like this:
 	//
-	glm::dvec3 sum;
-	sum *= 0;
+
+	// Ambient
+	glm::dvec3 ambient = ka(i) * scene->ambient();
+	glm::dvec3 sum = ke(i) + ambient;
+
 	for ( const auto& pLight : scene->getAllLights() )
 	{
 		// TODO sus?
 		glm::dvec3 i_in = pLight->getColor();
+		i_in *= pLight->distanceAttenuation(r.at(i));
 
-		// Ambient
-		glm::dvec3 ambient = ka(i) * scene->ambient();
 		// cout << ambient[0] << " " << ambient[1] << " " << ambient[2] << endl;
 
 		// Diffuse
@@ -67,8 +69,68 @@ glm::dvec3 Material::shade(Scene* scene, const ray& r, const isect& i) const
 		double m2 = max(glm::dot(v, w_ref), 0.0);
 		glm::dvec3 specular = ks(i) * pow(m2, i.getMaterial().shininess(i)) * i_in;
 
-		sum += ambient + diffuse + specular;
+		// Shadow ray
+		glm::dvec3 p = r.at(i) + i.getN() * 1e-12; // shift in direction of normal
+		glm::dvec3 dir = pLight->getDirection(r.at(i));
+		double t = 0.0;
+		
+		glm::dvec3 phong = diffuse + specular;
+		while(true){
+			ray shadowR(p + t * dir, dir, r.getAtten(), ray::SHADOW);
+			isect shadowI;
+			isect shadowI2;
+
+			if(scene->intersect2(shadowR, shadowI, shadowI2)){
+				if(shadowI.getT() < 0 || shadowI2.getT() < 0){
+					cout << "x" << endl;
+					exit(0);
+				}
+				double t1;
+				double t2;
+				// cout << "shadowI T: " << shadowI.getT() << " shadowI2 T: " << shadowI2.getT() << endl;
+				// Intersected twice
+				if(shadowI.getObject() == shadowI2.getObject()){
+				// if(shadowI.getObject() != i.getObject()){
+					t1 = shadowI.getT();
+					t2 = shadowI.getT() + shadowI2.getT();
+				} else { // Once
+					t1 = 0;
+					t2 = shadowI.getT();
+				}
+				
+				// Check if behind light
+				glm::dvec3 lightDir = pLight->getDirection(shadowR.at(t2));
+				glm::dvec3 lightDir2 = pLight->getDirection(shadowR.at(t1));
+				if(glm::dot(lightDir, lightDir2) <= 0){
+					break;
+				}
+
+
+				double d = glm::length(shadowR.at(t2) - shadowR.at(t1));
+				glm::dvec3 kt = shadowI.getObject()->getMaterial().kt(shadowI);
+				phong *= glm::pow(kt, {d,d,d});
+				if(debugMode) cout << "applying kt: " << kt << " d: " << d << " t1: " << t1 << " t2: " << t2 << endl;
+				
+				if(debugMode) cout << "t1 pos: " << shadowR.at(t1) << " t2 pos: " << shadowR.at(t2) << endl;
+				// Threshold if time small
+				if(t2 <= 1e-6){
+					break;
+				}
+
+				if(kt == glm::dvec3(0,0,0)){
+					break;
+				}
+				t += t2;
+			} else {
+				break;
+			}
+			// TODO REMOVE
+			// break;
+		}
+		if(debugMode) cout << "phong: " << phong << endl;
+		sum += phong;
 	}
+	if(debugMode) cout << "sum: " << sum << endl;
 	return sum;
 }
 
