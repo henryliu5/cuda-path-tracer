@@ -100,11 +100,17 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 			if(m.Refl()){
 				if(debugMode) cout << "shooting reflection" << endl;
 				glm::dvec3 w_in = r.getDirection();
-				glm::dvec3 w_normal = glm::dot(w_in, i.getN()) * i.getN();
+				glm::dvec3 normal = i.getN();
+				if(r.currentIndex != 1.0){
+					normal *= -1.0;
+				}
+				glm::dvec3 w_normal = glm::dot(w_in, normal) * normal;
 				glm::dvec3 w_tan = w_in - w_normal;
 				glm::dvec3 w_ref = -w_normal + w_tan;
 				w_ref = glm::normalize(w_ref);
 				ray reflect(r.at(i), w_ref, r.getAtten(), ray::REFLECTION);
+				reflect.currentIndex = r.currentIndex;
+
 				double dum;
 				glm::dvec3 temp = traceRay(reflect, glm::dvec3(1.0,1.0,1.0), depth - 1, dum);
 				colorC += m.kr(i) * temp;
@@ -138,7 +144,7 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 					glm::dvec3 refrac = (n*cosI - cosT) * normal - n*w_in;
 
 					if(debugMode) cout << "refrac: " << refrac << endl;
-					ray r2(r.at(i), glm::normalize(refrac), r.getAtten(), ray::REFRACTION);
+					ray r2(r.at(i) - normal * 1e-12, glm::normalize(refrac), r.getAtten(), ray::REFRACTION);
 					r2.currentIndex = n2;
 
 					double dum;
@@ -146,8 +152,20 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 					if(debugMode) cout << "temp : " << temp << endl;
 					colorC += trans * temp;		
 					if(debugMode) cout << "colorC: " << colorC << endl;
+				} else {
+					if(debugMode) cout << "total internal reflection" << endl;
+					glm::dvec3 w_in = r.getDirection();
+					glm::dvec3 w_normal = glm::dot(w_in, normal) * normal;
+					glm::dvec3 w_tan = w_in - w_normal;
+					glm::dvec3 w_ref = -w_normal + w_tan;
+					w_ref = glm::normalize(w_ref);
+					ray reflect(r.at(i), w_ref, r.getAtten(), ray::REFLECTION);
+					reflect.currentIndex = r.currentIndex;
+					double dum;
+					glm::dvec3 temp = traceRay(reflect, glm::dvec3(1.0,1.0,1.0), depth - 1, dum);
+					colorC += m.kr(i) * trans * temp;
 				}
-                        }
+			}
 
 		}
 
@@ -284,47 +302,50 @@ void RayTracer::traceImage(int w, int h)
 	//
 	//       An asynchronous traceImage lets the GUI update your results
 	//       while rendering.
-
-	int subpixels = samples;
-	cout << "subpixels: " << subpixels << endl;
 	for(int i = 0; i < w; i++){
 		for(int j = 0; j < h; j++){
-			double sumR = 0.0;
-			double sumG = 0.0;
-			double sumB = 0.0;
-
-			for(int subX = i * subpixels; subX < i * subpixels + subpixels; subX++){
-				for(int subY = j * subpixels; subY < j * subpixels + subpixels; subY++){
-					glm::dvec3 col(0,0,0);
-
-					if( ! sceneLoaded() ) return;
-
-					double x = double(subX)/double(buffer_width*subpixels);
-					double y = double(subY)/double(buffer_height*subpixels);
-			
-					col = trace(x, y);
-
-					sumR += (col[0]);
-					sumG += (col[1]);
-					sumB += (col[2]);		
-				}
-			}
-			// update pixel buffer w color
-			unsigned char *pixel = buffer.data() + ( i + j * buffer_width ) * 3;
-			pixel[0] = (int)( 255.0 * sumR / (subpixels * subpixels));
-			pixel[1] = (int)( 255.0 * sumG / (subpixels * subpixels));
-			pixel[2] = (int)( 255.0 * sumB / (subpixels * subpixels));
+			tracePixel(i, j);
 		}
 	}
 }
 
 int RayTracer::aaImage()
 {
-	// YOUR CODE HERE
-	// FIXME: Implement Anti-aliasing here
-	//
-	// TIP: samples and aaThresh have been synchronized with TraceUI by
-	//      RayTracer::traceSetup() function
+    // YOUR CODE HERE
+    // FIXME: Implement Anti-aliasing here
+    //
+    // TIP: samples and aaThresh have been synchronized with TraceUI by
+    //      RayTracer::traceSetup() function
+    int subpixels = samples;
+    for(int i = 0; i < buffer_width; i++){
+    	for(int j = 0; j < buffer_height; j++){
+    		double sumR = 0.0;
+    		double sumG = 0.0;
+    		double sumB = 0.0;
+
+    		for(int subX = i * subpixels; subX < i * subpixels + subpixels; subX++){
+    			for(int subY = j * subpixels; subY < j * subpixels + subpixels; subY++){
+    				glm::dvec3 col(0,0,0);
+
+    				if( ! sceneLoaded() ) return 0;
+
+    				double x = double(subX)/double(buffer_width*subpixels);
+    				double y = double(subY)/double(buffer_height*subpixels);
+
+    				col = trace(x, y);
+
+    				sumR += (col[0]);
+    				sumG += (col[1]);
+    				sumB += (col[2]);
+    			}
+    		}
+    		// update pixel buffer w color
+    		unsigned char *pixel = buffer.data() + ( i + j * buffer_width ) * 3;
+    		pixel[0] = (int)( 255.0 * sumR / (subpixels * subpixels));
+    		pixel[1] = (int)( 255.0 * sumG / (subpixels * subpixels));
+    		pixel[2] = (int)( 255.0 * sumB / (subpixels * subpixels));
+    	}
+    }
 	return 0;
 }
 
