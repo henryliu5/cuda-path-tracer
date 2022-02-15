@@ -17,3 +17,5 @@ We chose to have reflection rays reflect off the back faces of objects with both
 We do not implement backface culling.
 
 We implement total internal reflection by treating the ray as a reflective ray. i.e. we do apply the reflective constant, kr, to the ray's intensity.
+
+Our code does not use the shadowAttenuation methods in light.cpp and instead directly performs the shadow attenuation in shade().

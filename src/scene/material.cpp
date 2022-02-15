@@ -79,7 +79,7 @@ glm::dvec3 Material::shade(Scene* scene, const ray& r, const isect& i) const
 		glm::dvec3 specular = ks(i) * pow(m2, i.getMaterial().shininess(i)) * i_in;
 
 		// Shadow ray
-		glm::dvec3 p = r.at(i) + normal * 1e-12; // shift in direction of normal
+		glm::dvec3 p = r.at(i.getT() - 1e-10); // shift in direction of normal
 		glm::dvec3 dir = pLight->getDirection(r.at(i));
 		double t = 0.0;
 		

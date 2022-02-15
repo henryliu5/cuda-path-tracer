@@ -141,4 +141,5 @@ if __name__ == '__main__':
             help='Archives to check')
     args = parser.parse_args()
     for f in args.files:
+        print(f)
         sancheck(f, args)
