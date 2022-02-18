@@ -108,7 +108,7 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 				glm::dvec3 w_tan = w_in - w_normal;
 				glm::dvec3 w_ref = -w_normal + w_tan;
 				w_ref = glm::normalize(w_ref);
-				ray reflect(r.at(i) + normal * 1e-10, w_ref, r.getAtten(), ray::REFLECTION);
+				ray reflect(r.at(i) + normal * 1e-12, w_ref, r.getAtten(), ray::REFLECTION);
 				reflect.currentIndex = r.currentIndex;
 
 				double dum;
@@ -144,7 +144,7 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 					glm::dvec3 refrac = (n*cosI - cosT) * normal - n*w_in;
 
 					if(debugMode) cout << "refrac: " << refrac << endl;
-					ray r2(r.at(i) - normal * 1e-10, glm::normalize(refrac), r.getAtten(), ray::REFRACTION);
+					ray r2(r.at(i) - normal * 1e-12, glm::normalize(refrac), r.getAtten(), ray::REFRACTION);
 					r2.currentIndex = n2;
 
 					double dum;
