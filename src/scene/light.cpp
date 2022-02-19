@@ -120,5 +120,52 @@ glm::dvec3 Light::shadowAttenuation(const ray& r, const glm::dvec3& p) const
     return result;
 }
 
+glm::dvec3 Light::shade(const ray& r, const isect& i) const {
+    Material curMat = i.getMaterial();
+    if(debugMode) cout << "doing light: " << getColor() << endl;
+    // TODO sus?
+    glm::dvec3 i_in = getColor();
+    i_in *= distanceAttenuation(r.at(i));
+
+    // cout << ambient[0] << " " << ambient[1] << " " << ambient[2] << endl;
+    glm::dvec3 normal = i.getN();
+    // if(r.currentIndex != 1){
+    // 	normal *= -1;
+    // }
+    // TODO really sus
+    // Check if light can shine thru
+    if(glm::dot(getDirection(r.at(i)), normal) <= 0 && curMat.Trans()){
+        normal *= -1;
+    }
+
+    // Diffuse
+    glm::dvec3 l = getDirection(r.at(i));
+    double m = max(glm::dot(l, normal), 0.0);
+
+    glm::dvec3 diffuse = curMat.kd(i) * m * i_in;
+
+    // Specular
+    glm::dvec3 v = -r.getDirection();
+
+    glm::dvec3 w_in = -l;
+    glm::dvec3 w_normal = glm::dot(w_in, normal) * normal;
+    glm::dvec3 w_tan = w_in - w_normal;
+    glm::dvec3 w_ref = -w_normal + w_tan;
+    w_ref = glm::normalize(w_ref);
+
+    double m2 = max(glm::dot(v, w_ref), 0.0);
+    glm::dvec3 specular = curMat.ks(i) * pow(m2, i.getMaterial().shininess(i)) * i_in;
+
+    glm::dvec3 phong = diffuse + specular;
+
+    glm::dvec3 p = r.at(i.getT() - 1e-12); // shift in direction of normal
+    glm::dvec3 dir = getDirection(r.at(i));
+    ray shadowR(p, dir, r.getAtten(), ray::SHADOW);
+    phong *= shadowAttenuation(shadowR, p);
+
+    if(debugMode) cout << "phong: " << phong << endl;
+    return phong;
+}
+
 #define VERBOSE 0
 
