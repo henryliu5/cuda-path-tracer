@@ -23,13 +23,13 @@ public:
 
 
 protected:
-	Light(Scene *scene, const glm::dvec3& col) : SceneElement(scene), color(col) {}
-
+	Light(Scene *scene, const glm::dvec3& col) : SceneElement(scene), color(col){}
 	glm::dvec3 color;
 
 public:
-	virtual void glDraw(GLenum lightID) const { }
-	virtual void glDraw() const { }
+    bool background;
+    virtual void glDraw(GLenum lightID) const { }
+    virtual void glDraw() const { }
 };
 
 class DirectionalLight
@@ -60,8 +60,8 @@ public:
 		: Light( scene, color ), position( pos ),
 		constantTerm(constantAttenuationTerm), 
 		linearTerm(linearAttenuationTerm),
-		quadraticTerm(quadraticAttenuationTerm) 
-		{}
+		quadraticTerm(quadraticAttenuationTerm)
+		{ background = true; }
 
 	virtual double distanceAttenuation(const glm::dvec3& P) const;
 	virtual glm::dvec3 getColor() const;

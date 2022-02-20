@@ -179,8 +179,23 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 		// TIPS: CubeMap object can be fetched from traceUI->getCubeMap();
 		//       Check traceUI->cubeMap() to see if cubeMap is loaded
 		//       and enabled.
-
 		colorC = glm::dvec3(0.0, 0.0, 0.0);
+		if(traceUI->cubeMap()){
+			CubeMap* cubeMap = traceUI->getCubeMap();
+			glm::dvec3 kd = cubeMap->getColor(r);
+			// YOUR CODE HERE
+			// FIXME: Implement Cube Map here
+			// cout << kd << endl;
+			// cout << scene->getAllLights().size() << endl;
+			// cout << colorC << endl;
+
+			// for (const auto& pLight : scene->getAllLights()) {
+			colorC += kd;
+			// }
+			// colorC = glm::clamp(colorC, 0.0, 1.0);
+			
+			// cout << colorC << endl;
+		}
 	}
 #if VERBOSE
 	std::cerr << "== depth: " << depth+1 << " done, returning: " << colorC << std::endl;

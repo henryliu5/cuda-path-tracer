@@ -85,22 +85,29 @@ glm::dvec3 TextureMap::getMappedValue(const glm::dvec2& coord) const
 	double alpha = (u2 - u) / (double) (u2 - u1);
 	double beta = (u - u1) / (double) (u2 - u1);
 
-	glm::dvec3 a = getPixelAt(u1, v1);
-	glm::dvec3 b = getPixelAt(u2, v1);
-	glm::dvec3 c = getPixelAt(u2, v2);
-	glm::dvec3 d = getPixelAt(u1, v2);
-
-	glm::dvec3 lhs = ((v2 - v) / (double) (v2-v1)) * (alpha * a + beta * b);
-	glm::dvec3 rhs = ((v - v1) / (double) (v2-v1)) * (alpha * d + beta * c);
+	double lhsC = ((v2 - v) / (double) (v2-v1));
+	glm::dvec3 lhs(0,0,0);
+	if(abs(lhsC) > 1e-12){
+        glm::dvec3 a = getPixelAt(u1, v1);
+        glm::dvec3 b = getPixelAt(u2, v1);
+        lhs = lhsC * (alpha * a + beta * b);
+	}
+	double rhsC = ((v - v1) / (double) (v2-v1));
+	glm::dvec3 rhs(0,0,0);
+	if(abs(rhsC) > 1e-12){
+		glm::dvec3 c = getPixelAt(u2, v2);
+		glm::dvec3 d = getPixelAt(u1, v2);
+		rhs = rhsC * (alpha * d + beta * c);
+	}
 
 	glm::dvec3 res = lhs + rhs;
-
 	// return getPixelAt(coord.x * (width - 1), coord.y * (height - 1));
 	return res;
 }
 
 glm::dvec3 TextureMap::getPixelAt(int x, int y) const
 {
+	// cout << "x: " << x << " y: " << y << endl;
 	// YOUR CODE HERE
 	//
 	// In order to add texture mapping support to the
