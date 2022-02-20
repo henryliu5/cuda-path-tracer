@@ -74,8 +74,29 @@ glm::dvec3 TextureMap::getMappedValue(const glm::dvec2& coord) const
 	// [0, 1] x [0, 1] in 2-space to bitmap coordinates,
 	// and use these to perform bilinear interpolation
 	// of the values.
+	int u1 = coord.x * (width - 1);
+	int v1 = coord.y * (height - 1);
+	int u2 = u1 + 1;
+	int v2 = v1 + 1;
 
-	return glm::dvec3(1, 1, 1);
+	double u = coord.x * (width - 1);
+	double v = coord.y * (height - 1);
+
+	double alpha = (u2 - u) / (double) (u2 - u1);
+	double beta = (u - u1) / (double) (u2 - u1);
+
+	glm::dvec3 a = getPixelAt(u1, v1);
+	glm::dvec3 b = getPixelAt(u2, v1);
+	glm::dvec3 c = getPixelAt(u2, v2);
+	glm::dvec3 d = getPixelAt(u1, v2);
+
+	glm::dvec3 lhs = ((v2 - v) / (double) (v2-v1)) * (alpha * a + beta * b);
+	glm::dvec3 rhs = ((v - v1) / (double) (v2-v1)) * (alpha * d + beta * c);
+
+	glm::dvec3 res = lhs + rhs;
+
+	// return getPixelAt(coord.x * (width - 1), coord.y * (height - 1));
+	return res;
 }
 
 glm::dvec3 TextureMap::getPixelAt(int x, int y) const
@@ -83,9 +104,10 @@ glm::dvec3 TextureMap::getPixelAt(int x, int y) const
 	// YOUR CODE HERE
 	//
 	// In order to add texture mapping support to the
-	// raytracer, you need to implement this function.
-
-	return glm::dvec3(1, 1, 1);
+	// raytracer, you need to implement this function. 
+	const uint8_t* p = data.data() + (x + y * width) * 3;
+	auto res =  glm::dvec3(*(p) / 255.0, *(p + 1) / 255.0, *(p + 2) / 255.0);
+	return res;
 }
 
 glm::dvec3 MaterialParameter::value(const isect& is) const
