@@ -12,6 +12,7 @@
 #include "scene/cubeMap.h"
 #include "scene/ray.h"
 #include <mutex>
+#include "scene/bvh.h"
 
 class Scene;
 class Pixel {
@@ -67,7 +68,7 @@ private:
 	double aaThresh;
 	int samples;
 	std::unique_ptr<Scene> scene;
-
+	BVHTree bvhTree;
 	bool m_bBufferReady;
 
 };

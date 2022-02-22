@@ -74,6 +74,14 @@ public:
 		localBounds = localbounds;
 		return localbounds;
 	}
+	
+	virtual std::vector<Geometry*> getAll(){
+		std::vector<Geometry*> res;
+		for(const TrimeshFace* x: faces){
+			res.push_back((Geometry*) x);
+		}
+		return res;
+	}
 
 protected:
 	void glDrawLocal(int quality, bool actualMaterials,

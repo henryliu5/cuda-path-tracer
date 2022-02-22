@@ -176,6 +176,10 @@ public:
 	                         bool actualTextures) const
 	{
 	}
+	
+	virtual std::vector<Geometry*> getAll(){
+		return std::vector<Geometry*>{this};
+	}
 
 protected:
 	BoundingBox bounds;
@@ -265,9 +269,9 @@ public:
 
 	const BoundingBox& bounds() const { return sceneBounds; }
 
-
+	std::vector<Geometry*> objects;
 private:
-	std::vector<std::unique_ptr<Geometry>> objects;
+	
 	std::vector<std::unique_ptr<Light>> lights;
 	Camera camera;
 

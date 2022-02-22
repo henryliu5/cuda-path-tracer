@@ -1,0 +1,156 @@
+#include "bvh.h"
+#include <glm/gtx/io.hpp>
+#include <iostream>
+#include <limits>
+
+using namespace std;
+
+BVHTree::BVHTree(){
+
+}
+
+void BVHTree::build(unique_ptr<Scene>& scene){
+    if(built) return;
+    vector<Geometry*> geo;
+    for(Geometry* g: scene->objects){
+        auto x = g->getAll();
+        geo.insert(geo.end(), x.begin(), x.end());
+    }
+    root = buildHelper(geo);
+    built = true;
+}
+
+BoundingBox getBox(vector<Geometry*> geo){
+    double minX, minY, minZ = numeric_limits<double>::max();
+    double maxX, maxY, maxZ = numeric_limits<double>::min();
+
+    for(Geometry* g: geo){
+        if(!g->hasBoundingBoxCapability()){
+            cout << "rip" << endl;
+            exit(0);
+        }
+
+        glm::dvec3 mins = g->getBoundingBox().getMin();
+        glm::dvec3 maxs = g->getBoundingBox().getMax();
+
+        minX = min(mins.x, minX);
+        minY = min(mins.y, minY);
+        minZ = min(mins.z, minZ);
+
+        maxX = max(maxs.x, maxX);
+        maxY = max(maxs.y, maxY);
+        maxZ = max(maxs.z, maxZ);
+    }
+
+    return BoundingBox(glm::dvec3(minX, minY, minZ), glm::dvec3(maxX,maxY,maxZ));
+}
+
+BVHNode* BVHTree::buildHelper(vector<Geometry*>& geo){
+    auto node = new BVHNode(0, 0, nullptr);
+    if(geo.size() == 0){
+        cout << "geo 0 " << endl;
+        exit(0);
+    }
+    cout << "x" << endl;
+    cout << geo.size() << endl;
+    cout << "size" << endl;
+    // Leaf node
+    if(geo.size() == 1){
+        node->geometry = geo[0];
+        return node;
+    }
+    cout << "2" << endl;
+    // Compute bounding boxes
+    node->bb = getBox(geo);
+
+    glm::dvec3 mins = node->bb.getMin();
+    glm::dvec3 maxs = node->bb.getMax();
+
+    auto diff = maxs - mins;
+
+    cout << "mins: " << mins << endl;
+    cout << "maxs: " << maxs << endl;
+
+    // Find longest axis
+    double center;
+    int centerIndex;
+    if(diff[0] > diff[1] && diff[0] > diff[2]){
+        // x
+        center = diff[0] / 2 + mins[0];
+        centerIndex = 0;
+    } else if(diff[1] > diff[0] && diff[1] > diff[2]){
+        // y
+        center = diff[1] / 2 + mins[1];
+        centerIndex = 1;
+    } else {
+        // z
+        center = diff[2] / 2 + mins[2];
+        centerIndex = 2;
+    }
+
+    vector<Geometry*> l, r;
+    sort(geo.begin(), geo.end(), [=](Geometry* a, Geometry* b) {
+        glm::dvec3 a_c = (a->getBoundingBox().getMin() + a->getBoundingBox().getMax()) / glm::dvec3 { 2.0, 2.0, 2.0 };
+        glm::dvec3 b_c = (b->getBoundingBox().getMin() + b->getBoundingBox().getMax()) / glm::dvec3 { 2.0, 2.0, 2.0 };
+        return a_c[centerIndex] < b_c[centerIndex];
+    });
+
+    for(int i = 0; i < geo.size(); i++){
+        if (i < geo.size() / 2) {
+            l.push_back(geo[i]);
+        } else{
+            r.push_back(geo[i]);
+        }
+    }
+
+    cout << "starting children" << endl;
+    cout << "l: " << l.size() << endl;
+    cout << "r: " << r.size() << endl;
+    cout << "entering l" << endl;
+    node->left = buildHelper(l);
+    cout << "entering r" << endl;
+    node->right = buildHelper(r);
+    return node;
+}
+
+
+bool BVHTree::traverse(ray& r, isect& i)
+{
+    i = traverseHelper(r, root);
+    return i.getT() != -1;
+}
+
+isect BVHTree::traverseHelper(ray& r, BVHNode* n){
+    isect res;
+    if(!n){
+        return res;
+    }
+    res.setT(-1);
+
+    // If leaf node
+    if (n->geometry) {
+        if(n->geometry->intersect(r, res)){
+            return res;
+        }
+        res.setT(-1);
+        return res;
+    }
+
+    // Check bounding box of current
+    double tMin = -1;
+    double tMax = -1;
+    if(!n->bb.intersect(r, tMin, tMax)){
+        return res;
+    }
+    
+    isect li = traverseHelper(r, n->left);
+    isect ri = traverseHelper(r, n->right);
+
+    if(li.getT() == -1){
+        return ri;
+    } else if(ri.getT() == -1){
+        return li;
+    } else {
+        return li.getT() < ri.getT() ? li : ri;
+    }
+}
