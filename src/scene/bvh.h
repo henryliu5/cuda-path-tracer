@@ -21,7 +21,7 @@ public:
     bool traverse(ray& r, isect& i);    
 
 protected:
-    BVHNode* buildHelper(std::vector<Geometry*>& geo);
+    BVHNode* buildHelper(std::vector<Geometry*>& geo, int st, int end);
     isect traverseHelper(ray& r, BVHNode* n);
     BVHNode* root;
     bool built;

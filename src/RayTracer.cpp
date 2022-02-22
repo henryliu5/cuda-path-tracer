@@ -82,8 +82,8 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 	std::cerr << "== current depth: " << depth << std::endl;
 #endif
 
-	// if(scene->intersect(r, i)) {
-	if(bvhTree.traverse(r, i)) {	
+	if(scene->intersect(r, i)) {
+	//if(bvhTree.traverse(r, i)) {	
 		// YOUR CODE HERE
 
 		// An intersection occurred!  We've got work to do.  For now,
@@ -293,6 +293,7 @@ void RayTracer::traceSetup(int w, int h)
 
 	// YOUR CODE HERE
 	// FIXME: Additional initializations
+	cout << "init" << endl;
 	bvhTree.build(scene);
 }
 
