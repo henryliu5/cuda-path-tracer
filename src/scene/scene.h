@@ -28,6 +28,9 @@
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 
+#include <iostream>
+using namespace std;
+
 using std::unique_ptr;
 
 class Light;
@@ -181,9 +184,10 @@ public:
 		return std::vector<Geometry*>{this};
 	}
 
+	TransformNode* transform;
 protected:
 	BoundingBox bounds;
-	TransformNode* transform;
+
 };
 
 // A SceneObject is a real actual thing that we want to model in the

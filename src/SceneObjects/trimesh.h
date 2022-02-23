@@ -16,7 +16,9 @@
 class TrimeshFace;
 
 class Trimesh : public MaterialSceneObject {
+
 	friend class TrimeshFace;
+public:
 	typedef std::vector<glm::dvec3> Normals;
 	typedef std::vector<glm::dvec3> Vertices;
 	typedef std::vector<TrimeshFace *> Faces;
@@ -28,7 +30,7 @@ class Trimesh : public MaterialSceneObject {
 	Materials materials;
 	BoundingBox localBounds;
 
-public:
+
 	Trimesh(Scene *scene, Material *mat, TransformNode *transform)
 	        : MaterialSceneObject(scene, mat),
 	          displayListWithMaterials(0),
@@ -75,13 +77,7 @@ public:
 		return localbounds;
 	}
 	
-	virtual std::vector<Geometry*> getAll(){
-		std::vector<Geometry*> res;
-		for(const TrimeshFace* x: faces){
-			res.push_back((Geometry*) x);
-		}
-		return res;
-	}
+	virtual std::vector<Geometry*> getAll();
 
 protected:
 	void glDrawLocal(int quality, bool actualMaterials,
@@ -91,12 +87,14 @@ protected:
 };
 
 class TrimeshFace : public MaterialSceneObject {
-	Trimesh *parent;
-	int ids[3];
+
 	glm::dvec3 normal;
 	double dist;
 
 public:
+
+	Trimesh *parent;
+	int ids[3];
 	TrimeshFace(Scene *scene, Material *mat, Trimesh *parent, int a, int b,
 	            int c)
 	        : MaterialSceneObject(scene, mat)

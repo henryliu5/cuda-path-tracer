@@ -101,7 +101,7 @@ bool TrimeshFace::intersectLocal(ray& r, isect& i) const
 	glm::dvec3 a_coords = parent->vertices[ids[0]];
 	glm::dvec3 b_coords = parent->vertices[ids[1]];
 	glm::dvec3 c_coords = parent->vertices[ids[2]];
-	
+
 	// Ray - plane intersection
 	double numerator = -glm::dot(r.getPosition() - a_coords, normal);
 	double denominator = glm::dot(r.getDirection(), normal);
@@ -189,3 +189,11 @@ void Trimesh::generateNormals()
 	vertNorms = true;
 }
 
+std::vector<Geometry*> Trimesh::getAll(){
+    std::vector<Geometry*> res;
+    for (TrimeshFace* x : faces) {
+        res.push_back((Geometry*)x);
+		x->ComputeBoundingBox();
+    }
+    return res;
+}

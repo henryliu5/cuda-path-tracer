@@ -1,42 +1,56 @@
 #include "bvh.h"
+#include "../SceneObjects/trimesh.h"
+#include "../ui/TraceUI.h"
 #include <glm/gtx/io.hpp>
 #include <iostream>
 #include <limits>
+
+extern bool debugMode;
 
 using namespace std;
 
 BVHTree::BVHTree(){
     built = false;
+    size = 0;
+    leaves = 0;
+    misses = 0;
 }
 
 void BVHTree::build(unique_ptr<Scene>& scene){
+    this->scene = scene.get();
+
     if(built) {
         cout << "built" << endl; 
         return;
     }
     vector<Geometry*> geo;
-    cout << "build" << endl;
     for(Geometry* g: scene->objects){
         auto x = g->getAll();
         geo.insert(geo.end(), x.begin(), x.end());
     }
-    cout << "build" << endl;
+
     root = buildHelper(geo, 0, geo.size());
     built = true;
+
+    cout << leaves << " " << geo.size() << endl;
+    if(leaves != geo.size()){
+        cout << "missing elements" << endl;
+        exit(0);
+    }
 }
 
-BoundingBox getBox(vector<Geometry*> geo){
+BoundingBox getBox(vector<Geometry*>& geo, int st, int end){
     double minX, minY, minZ = numeric_limits<double>::max();
     double maxX, maxY, maxZ = numeric_limits<double>::min();
 
-    for(Geometry* g: geo){
-        if(!g->hasBoundingBoxCapability()){
+    for(int i = st; i < end; i++){
+        if(!geo[i]->hasBoundingBoxCapability()){
             cout << "rip" << endl;
             exit(0);
         }
 
-        glm::dvec3 mins = g->getBoundingBox().getMin();
-        glm::dvec3 maxs = g->getBoundingBox().getMax();
+        glm::dvec3 mins = geo[i]->getBoundingBox().getMin();
+        glm::dvec3 maxs = geo[i]->getBoundingBox().getMax();
 
         minX = min(mins.x, minX);
         minY = min(mins.y, minY);
@@ -52,29 +66,26 @@ BoundingBox getBox(vector<Geometry*> geo){
 
 BVHNode* BVHTree::buildHelper(vector<Geometry*>& geo, int st, int end){
     auto node = new BVHNode(0, 0, nullptr);
+    size++;
+
     if(st >= end){
         cout << "geo 0 " << endl;
-        exit(0);
+        return nullptr;
     }
-    cout << "x" << endl;
-    cout << end - st << endl;
-    cout << "size" << endl;
     // Leaf node
     if(end - st <= 1){
         node->geometry = geo[st];
+        leaves++;
         return node;
     }
-    cout << "2" << endl;
+
     // Compute bounding boxes
-    node->bb = getBox(geo);
+    node->bb = getBox(geo, st, end);
 
     glm::dvec3 mins = node->bb.getMin();
     glm::dvec3 maxs = node->bb.getMax();
 
     auto diff = maxs - mins;
-
-    cout << "mins: " << mins << endl;
-    cout << "maxs: " << maxs << endl;
 
     // Find longest axis
     double center;
@@ -93,14 +104,26 @@ BVHNode* BVHTree::buildHelper(vector<Geometry*>& geo, int st, int end){
         centerIndex = 2;
     }
 
-    vector<Geometry*> l, r;
+    // cout << "ci: " << centerIndex << endl;
+    // for(int i = 0; i < 10; i++){
+    //     TrimeshFace* tri = ((TrimeshFace* )geo[i]);
+
+    //     cout << "v: " << tri->parent->vertices[tri->ids[0]] << " " << tri->parent->vertices[tri->ids[1]] << " " << tri->parent->vertices[tri->ids[2]] << endl;
+    //     // auto x  = (geo[i]->getBoundingBox().getMin() + geo[i]->getBoundingBox().getMax()) / glm::dvec3 { 2.0, 2.0, 2.0 };
+    //     // cout << x << endl;
+    //     cout << "min: " << geo[i]->getBoundingBox().getMin() << endl;
+    //     cout << "max: " << geo[i]->getBoundingBox().getMax() << endl;
+
+    // }
+    // exit(0);
+
     sort(geo.begin() + st, geo.begin() + end, [=](Geometry* a, Geometry* b) {
         glm::dvec3 a_c = (a->getBoundingBox().getMin() + a->getBoundingBox().getMax()) / glm::dvec3 { 2.0, 2.0, 2.0 };
         glm::dvec3 b_c = (b->getBoundingBox().getMin() + b->getBoundingBox().getMax()) / glm::dvec3 { 2.0, 2.0, 2.0 };
         return a_c[centerIndex] < b_c[centerIndex];
     });
 
-    // for(int i = 0; i < geo.size(); i++){
+    // for(int i = 0; i < geo.size(); ++i){
     //     if (i < geo.size() / 2) {
     //         l.push_back(geo[i]);
     //     } else{
@@ -110,12 +133,12 @@ BVHNode* BVHTree::buildHelper(vector<Geometry*>& geo, int st, int end){
 
     int mid = st + (end - st) / 2;
 
-    cout << "starting children" << endl;
-    cout << "l: " << mid - st << endl;
-    cout << "r: " << end - mid << endl;
-    cout << "entering l" << endl;
+    // cout << "starting children" << endl;
+    // cout << "l: " << mid - st << endl;
+    // cout << "r: " << end - mid << endl;
+    // cout << "entering l" << endl;
     node->left = buildHelper(geo, st, mid);
-    cout << "entering r" << endl;
+    // cout << "entering r" << endl;
     node->right = buildHelper(geo, mid, end);
     return node;
 }
@@ -123,20 +146,41 @@ BVHNode* BVHTree::buildHelper(vector<Geometry*>& geo, int st, int end){
 
 bool BVHTree::traverse(ray& r, isect& i)
 {
+    traverseCount = 0;
+    misses = 0;
+    if(debugMode) cout << "--- starting traverse --- " << endl;
     i = traverseHelper(r, root);
-    return i.getT() != -1;
+    bool res = i.getT() != -1;
+    if(!res){
+        i.setT(1000.0);
+    }
+    if (TraceUI::m_debug) {
+        scene->addToIntersectCache(std::make_pair(new ray(r), new isect(i)));
+    }
+
+    // cout << "prune percentage: " << (double) misses / traverseCount << endl;
+    return res;
 }
 
 isect BVHTree::traverseHelper(ray& r, BVHNode* n){
+
+    if(debugMode) cout << "traversing" << endl;
+    traverseCount++;
     isect res;
+    res.setT(-1);
+
     if(!n){
+        if(debugMode) cout << "off tree" << endl;
         return res;
     }
-    res.setT(-1);
+    
 
     // If leaf node
     if (n->geometry) {
+        if(debugMode) cout << "in leaf" << endl;
+        if(debugMode) cout << "ray" << r.getDirection() << " pos: " << r.getPosition() << endl;
         if(n->geometry->intersect(r, res)){
+            if(debugMode) cout << "got valid int" << endl;
             return res;
         }
         res.setT(-1);
@@ -144,9 +188,16 @@ isect BVHTree::traverseHelper(ray& r, BVHNode* n){
     }
 
     // Check bounding box of current
-    double tMin = -1;
-    double tMax = -1;
+    double tMin;
+    double tMax;
+    if(debugMode){
+        cout << "checking current bb" << endl;
+        cout << n->bb.getMax() << endl;
+        cout << n->bb.getMin() << endl;
+    }
     if(!n->bb.intersect(r, tMin, tMax)){
+        if(debugMode) cout << "skipping bb" << endl;
+        misses++;
         return res;
     }
     

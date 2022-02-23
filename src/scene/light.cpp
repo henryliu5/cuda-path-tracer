@@ -141,7 +141,8 @@ glm::dvec3 Light::shade(const ray& r, const isect& i) const {
     // Diffuse
     glm::dvec3 l = getDirection(r.at(i));
     double m = max(glm::dot(l, normal), 0.0);
-
+    if(debugMode)
+        cout << "kd: " << curMat.kd(i) << endl;
     glm::dvec3 diffuse = curMat.kd(i) * m * i_in;
 
     // Specular

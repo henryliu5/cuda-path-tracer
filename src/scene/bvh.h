@@ -18,11 +18,17 @@ class BVHTree {
 public:
     BVHTree();
     void build(std::unique_ptr<Scene>& scene);
-    bool traverse(ray& r, isect& i);    
+    bool traverse(ray& r, isect& i);
+    BVHNode* root;
 
 protected:
     BVHNode* buildHelper(std::vector<Geometry*>& geo, int st, int end);
     isect traverseHelper(ray& r, BVHNode* n);
-    BVHNode* root;
+
     bool built;
+    int size;
+    int leaves;
+    int misses;
+    int traverseCount;
+    Scene* scene;
 };
