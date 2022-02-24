@@ -29,7 +29,7 @@ glm::dvec3 CubeMap::getColor(ray r1) const
 		} else {
 			i = 1;
 		}
-	} else if(abs(y) > abs(x) && abs(y) > abs(z)){
+	} else if(abs(y) >= abs(x) && abs(y) >= abs(z)){
 		r = x / abs(y);
 		s = z / abs(y);
 		if(y > 0){

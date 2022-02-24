@@ -32,6 +32,7 @@ public:
 	RayTracer();
 	~RayTracer();
 
+	glm::dvec3 tracePixelAA(int i, int j);
 	glm::dvec3 tracePixel(int i, int j);
 	glm::dvec3 traceRay(ray& r, const glm::dvec3& thresh, int depth,
 	                    double& length);
@@ -62,6 +63,7 @@ public:
 	bool stopTrace;
 	BVHTree bvhTree;
 private:
+	double fRand(double fMin, double fMax);
 	glm::dvec3 getFocalPoint(int x, int y, double focalDistance);
 	glm::dvec3 trace(double x, double y);
 

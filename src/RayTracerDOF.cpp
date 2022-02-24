@@ -54,7 +54,7 @@ void RayTracer::tracePixelDOF(int i, int j, double FOCAL_DISTANCE, unsigned int 
     if (TraceUI::m_debug) {
         scene->clearIntersectCache();
     }
-    // cout << "focalPoint: " << focalPoint << endl;
+
     for (unsigned int k = 0; k < SAMPLES; ++k) {
         double xShift = unif(re);
         double yShift = unif(re);

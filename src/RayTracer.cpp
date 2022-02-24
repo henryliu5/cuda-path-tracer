@@ -72,6 +72,38 @@ glm::dvec3 RayTracer::tracePixel(int i, int j)
 	return col;
 }
 
+glm::dvec3 RayTracer::tracePixelAA(int i, int j){
+    glm::dvec3 colSum(0, 0, 0);
+
+    int subpixels = 1;
+    if (traceUI->aaSwitch()) {
+        subpixels = samples;
+    }
+
+    for (int subX = i * subpixels; subX < i * subpixels + subpixels; subX++) {
+        for (int subY = j * subpixels; subY < j * subpixels + subpixels; subY++) {
+            glm::dvec3 col(0, 0, 0);
+
+            if (!sceneLoaded())
+                return colSum;
+
+            double x = double(subX + fRand(0, 1)) / double(buffer_width * subpixels);
+            double y = double(subY + fRand(0, 1)) / double(buffer_height * subpixels);
+
+            col = trace(x, y);
+
+            colSum += col;
+        }
+    }
+    // update pixel buffer w color
+    unsigned char* pixel = buffer.data() + (i + j * buffer_width) * 3;
+    pixel[0] = (int)(255.0 * colSum.x / (subpixels * subpixels));
+    pixel[1] = (int)(255.0 * colSum.y / (subpixels * subpixels));
+    pixel[2] = (int)(255.0 * colSum.z / (subpixels * subpixels));
+
+    return colSum;
+}
+
 #define VERBOSE 0
 
 // Do recursive ray tracing!  You'll want to insert a lot of code here
@@ -329,7 +361,7 @@ void RayTracer::traceImage(int w, int h)
     const double APERTURE = 0.2;
     // Number of samples per pixel
     const unsigned int SAMPLES = 128;
-
+	threads = 1;
     // YOUR CODE HERE
     // FIXME: Start one or more threads for ray tracing
     //
@@ -353,17 +385,19 @@ void RayTracer::traceImage(int w, int h)
 				count++;
 				int i = index1d / h;
 				int j = index1d % h;
-				if(threadId == 0){
-					if(count % (512) == 0){
-						cout << "count: " << count << endl;
-std::cout << "Avg. elapsed(ms) = " << chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now() - start).count() / (double)count << "\n";
-						cout << "thread 0 finished col: " << i << endl;
-						start = chrono::steady_clock::now();
-						count = 0;
-					}
-				}
+// 				if(threadId == 0){
+// 					if(count % (512) == 0){
+// 						cout << "count: " << count << endl;
+// std::cout << "Avg. elapsed(ms) = " << chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now() - start).count() / (double)count << "\n";
+// 						cout << "thread 0 finished col: " << i << endl;
+// 						start = chrono::steady_clock::now();
+// 						count = 0;
+// 					}
+// 				}
 				if (USE_DOF) {
 					tracePixelDOF(i, j, FOCAL_DISTANCE, SAMPLES, unif, re);
+				} else if (traceUI->aaSwitch()) { 
+					tracePixelAA(i, j);
 				} else {
 					tracePixel(i, j);
 				}
@@ -373,7 +407,7 @@ std::cout << "Avg. elapsed(ms) = " << chrono::duration_cast<chrono::milliseconds
 	}
 }
 
-double fRand(double fMin, double fMax)
+double RayTracer::fRand(double fMin, double fMax)
 {
     double f = (double)rand() / RAND_MAX;
     return fMin + f * (fMax - fMin);
@@ -386,36 +420,8 @@ int RayTracer::aaImage()
     //
     // TIP: samples and aaThresh have been synchronized with TraceUI by
     //      RayTracer::traceSetup() function
-    int subpixels = samples;
-    for(int i = 0; i < buffer_width; i++){
-    	for(int j = 0; j < buffer_height; j++){
-    		double sumR = 0.0;
-    		double sumG = 0.0;
-    		double sumB = 0.0;
 
-    		for(int subX = i * subpixels; subX < i * subpixels + subpixels; subX++){
-    			for(int subY = j * subpixels; subY < j * subpixels + subpixels; subY++){
-    				glm::dvec3 col(0,0,0);
-
-    				if( ! sceneLoaded() ) return 0;
-
-    				double x = double(subX + fRand(0, 1))/double(buffer_width*subpixels);
-    				double y = double(subY + fRand(0, 1))/double(buffer_height*subpixels);
-
-    				col = trace(x, y);
-
-    				sumR += (col[0]);
-    				sumG += (col[1]);
-    				sumB += (col[2]);
-    			}
-    		}
-    		// update pixel buffer w color
-    		unsigned char *pixel = buffer.data() + ( i + j * buffer_width ) * 3;
-    		pixel[0] = (int)( 255.0 * sumR / (subpixels * subpixels));
-    		pixel[1] = (int)( 255.0 * sumG / (subpixels * subpixels));
-    		pixel[2] = (int)( 255.0 * sumB / (subpixels * subpixels));
-    	}
-    }
+	// Done in tracePixelAA() above
 	return 0;
 }
 
@@ -446,7 +452,8 @@ void RayTracer::waitRender()
 	//
 	// TIPS: Join all worker threads here.
 	for(int i = 0; i < threads; ++i){
-		pixThreads[i].join();
+		if(pixThreads[i].joinable())
+			pixThreads[i].join();
 	}
 	// delete[] pixThreads;
 	// delete[] pixThreadsDone;
