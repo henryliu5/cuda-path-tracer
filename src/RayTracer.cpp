@@ -324,11 +324,11 @@ void RayTracer::traceImage(int w, int h)
 	const bool USE_DOF = false;
     // Good config for easy3: fd = 8.5, a = 0.2
 	// Good config for reflection2: fd = 6, a = 0.3
-    const double FOCAL_DISTANCE = 6;
+    const double FOCAL_DISTANCE = 8.5;
     // Side length of camera aperture (square)
-    const double APERTURE = 0.3;
+    const double APERTURE = 0.2;
     // Number of samples per pixel
-    const unsigned int SAMPLES = 16;
+    const unsigned int SAMPLES = 128;
 
     // YOUR CODE HERE
     // FIXME: Start one or more threads for ray tracing
@@ -340,27 +340,28 @@ void RayTracer::traceImage(int w, int h)
     //       while rendering.
 
 	int debugInterval = 16;
+	static uniform_real_distribution<double> unif(-APERTURE, APERTURE);
+	static default_random_engine re;
 
 	for(int threadId = 0; threadId < threads; ++threadId){
 		pixThreads[threadId] = std::thread([=]() {
 			auto start = chrono::steady_clock::now();
-			uniform_real_distribution<double> unif(-APERTURE, APERTURE);
-			default_random_engine re;
+			
 			int count = 0;
 			// Compute pixels for this thread
 			for (int index1d = threadId; index1d < w * h; index1d += threads) {
 				count++;
 				int i = index1d / h;
 				int j = index1d % h;
-// 				if(threadId == 0){
-// 					if(count % (512) == 0){
-// 						cout << "count: " << count << endl;
-// std::cout << "Avg. elapsed(ms) = " << chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now() - start).count() / (double)count << "\n";
-// 						cout << "thread 0 finished col: " << i << endl;
-// 						start = chrono::steady_clock::now();
-// 						count = 0;
-// 					}
-// 				}
+				if(threadId == 0){
+					if(count % (512) == 0){
+						cout << "count: " << count << endl;
+std::cout << "Avg. elapsed(ms) = " << chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now() - start).count() / (double)count << "\n";
+						cout << "thread 0 finished col: " << i << endl;
+						start = chrono::steady_clock::now();
+						count = 0;
+					}
+				}
 				if (USE_DOF) {
 					tracePixelDOF(i, j, FOCAL_DISTANCE, SAMPLES, unif, re);
 				} else {
@@ -370,6 +371,12 @@ void RayTracer::traceImage(int w, int h)
 			pixThreadsDone[threadId] = true;
 		});
 	}
+}
+
+double fRand(double fMin, double fMax)
+{
+    double f = (double)rand() / RAND_MAX;
+    return fMin + f * (fMax - fMin);
 }
 
 int RayTracer::aaImage()
@@ -392,8 +399,8 @@ int RayTracer::aaImage()
 
     				if( ! sceneLoaded() ) return 0;
 
-    				double x = double(subX)/double(buffer_width*subpixels);
-    				double y = double(subY)/double(buffer_height*subpixels);
+    				double x = double(subX + fRand(0, 1))/double(buffer_width*subpixels);
+    				double y = double(subY + fRand(0, 1))/double(buffer_height*subpixels);
 
     				col = trace(x, y);
 
@@ -441,10 +448,10 @@ void RayTracer::waitRender()
 	for(int i = 0; i < threads; ++i){
 		pixThreads[i].join();
 	}
-	delete[] pixThreads;
-	delete[] pixThreadsDone;
-	pixThreads = 0;
-	pixThreadsDone = 0;
+	// delete[] pixThreads;
+	// delete[] pixThreadsDone;
+	// pixThreads = 0;
+	// pixThreadsDone = 0;
 	cout << " ------------- done" << endl;
 }
 
