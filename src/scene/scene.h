@@ -38,6 +38,7 @@ class Scene;
 
 template <typename Obj>
 class KdTree;
+class SplitGeo;
 
 class SceneElement {
 public:
@@ -141,6 +142,7 @@ public:
 // It may not be an actual visible scene object.  For example, hierarchical
 // spatial subdivision could be expressed in terms of Geometry instances.
 class Geometry : public SceneElement {
+	friend SplitGeo;
 protected:
 	// intersections performed in the object's local coordinate space
 	// do not call directly - this should only be called by intersect()
@@ -151,7 +153,7 @@ public:
 	bool intersect(ray& r, isect& i) const;
 
 	virtual bool hasBoundingBoxCapability() const;
-	const BoundingBox& getBoundingBox() const { return bounds; }
+	BoundingBox& getBoundingBox() { return bounds; }
 	glm::dvec3 getNormal() { return glm::dvec3(1.0, 0.0, 0.0); }
 
 	virtual void ComputeBoundingBox();
@@ -185,8 +187,8 @@ public:
 	}
 
 	TransformNode* transform;
-protected:
 	BoundingBox bounds;
+protected:
 
 };
 
@@ -215,13 +217,14 @@ public:
 	virtual const Material& getMaterial() const { return *material; }
 	virtual void setMaterial(Material* m) { material.reset(m); }
 
+	unique_ptr<Material> material;
 protected:
 	MaterialSceneObject(Scene* scene, Material* mat)
 	        : SceneObject(scene), material(mat)
 	{
 	}
 
-	unique_ptr<Material> material;
+
 };
 
 class Scene {

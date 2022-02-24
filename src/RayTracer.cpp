@@ -17,8 +17,10 @@
 #include <glm/gtx/io.hpp>
 #include <string.h> // for memset
 
-#include <iostream>
 #include <fstream>
+#include <iostream>
+#include <pthread.h>
+#include <chrono>
 
 using namespace std;
 extern TraceUI* traceUI;
@@ -294,6 +296,14 @@ void RayTracer::traceSetup(int w, int h)
 	// YOUR CODE HERE
 	// FIXME: Additional initializations
 	bvhTree.build(scene);
+
+	// cout << "max: " << bvhTree.root->bb.getMax() << endl;
+	// cout << "min: " << bvhTree.root->bb.getMin() << endl;
+
+	// cout << "max: " << bvhTree.root->left->bb.getMax() << endl;
+	// cout << "min: " << bvhTree.root->left->bb.getMin() << endl;
+	// cout << "max: " << bvhTree.root->right->bb.getMax() << endl;
+	// cout << "min: " << bvhTree.root->right->bb.getMin() << endl;
 }
 
 /*
@@ -319,11 +329,20 @@ void RayTracer::traceImage(int w, int h)
 	//
 	//       An asynchronous traceImage lets the GUI update your results
 	//       while rendering.
-	for(int i = 0; i < w; i++){
-		for(int j = 0; j < h; j++){
+	for(unsigned int i = 0; i < w; ++i){
+		auto start = chrono::steady_clock::now();
+		for(unsigned int j = 0; j < h; ++j){
 			tracePixel(i, j);
 		}
-		// cout << "col: " <<  i << "\n";
+		std::cout << "Avg. elapsed(ms) = " << chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now()-start).count() / (double) h << "\n";
+		if(i % 32 == 0){
+			cout << "col: " << i << "\n";
+			cout << "total traverals: " << bvhTree.traversals << endl;
+			cout << "visit %: " << bvhTree.percentSum / bvhTree.traversals << endl;
+		}
+
+		bvhTree.traversals = 0;
+		bvhTree.percentSum = 0;
 	}
 }
 

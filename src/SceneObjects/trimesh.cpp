@@ -106,7 +106,7 @@ bool TrimeshFace::intersectLocal(ray& r, isect& i) const
 	double numerator = -glm::dot(r.getPosition() - a_coords, normal);
 	double denominator = glm::dot(r.getDirection(), normal);
 
-	if(denominator == 0){
+	if(denominator >= 0){
 		//cerr << "0" << endl;
 		return false;
 	}
@@ -138,12 +138,12 @@ bool TrimeshFace::intersectLocal(ray& r, isect& i) const
 		// Do areas
 		double alpha = glm::length(glm::cross(b_coords - p, c_coords - p));
 		double beta = glm::length(glm::cross(p - a_coords, c_coords - a_coords));
-		double gamma = glm::length(glm::cross(b_coords - a_coords, p - a_coords));
+		// double gamma = glm::length(glm::cross(b_coords - a_coords, p - a_coords));
 		double denom = glm::length(glm::cross(vba, c_coords - a_coords));
 
 		alpha /= denom;
 		beta /= denom;
-		gamma /= denom;
+		// gamma /= denom;
 		// TODO sus?
 		// i.setT(gamma);
 		i.setUVCoordinates(glm::dvec2(alpha, beta));

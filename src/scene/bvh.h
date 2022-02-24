@@ -20,6 +20,10 @@ public:
     void build(std::unique_ptr<Scene>& scene);
     bool traverse(ray& r, isect& i);
     BVHNode* root;
+    int misses;
+    int traverseCount;
+    int traversals;
+    double percentSum;
 
 protected:
     BVHNode* buildHelper(std::vector<Geometry*>& geo, int st, int end);
@@ -28,7 +32,5 @@ protected:
     bool built;
     int size;
     int leaves;
-    int misses;
-    int traverseCount;
     Scene* scene;
 };

@@ -55,7 +55,7 @@ public:
 	const Scene& getScene() { return *scene; }
 
 	bool stopTrace;
-
+	BVHTree bvhTree;
 private:
 	glm::dvec3 trace(double x, double y);
 
@@ -68,7 +68,7 @@ private:
 	double aaThresh;
 	int samples;
 	std::unique_ptr<Scene> scene;
-	BVHTree bvhTree;
+	
 	bool m_bBufferReady;
 
 };
