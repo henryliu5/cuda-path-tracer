@@ -5,7 +5,7 @@ IF (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 			SET(CMAKE_EXE_LINKER_FLAGS "-Wl,-rpath,/lusr/opt/gcc-5.2.0/lib64/")
 		ENDIF ()
 	ENDIF ()
-	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fdiagnostics-color=always")
+	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fdiagnostics-color=always -pthread")
 ENDIF ()
 
 MESSAGE(STATUS "USING C++ Compiler ${CMAKE_CXX_COMPILER}")

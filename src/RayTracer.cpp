@@ -188,16 +188,8 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 			glm::dvec3 kd = cubeMap->getColor(r);
 			// YOUR CODE HERE
 			// FIXME: Implement Cube Map here
-			// cout << kd << endl;
-			// cout << scene->getAllLights().size() << endl;
-			// cout << colorC << endl;
 
-			// for (const auto& pLight : scene->getAllLights()) {
 			colorC += kd;
-			// }
-			// colorC = glm::clamp(colorC, 0.0, 1.0);
-			
-			// cout << colorC << endl;
 		}
 	}
 #if VERBOSE
@@ -304,6 +296,13 @@ void RayTracer::traceSetup(int w, int h)
 	// cout << "min: " << bvhTree.root->left->bb.getMin() << endl;
 	// cout << "max: " << bvhTree.root->right->bb.getMax() << endl;
 	// cout << "min: " << bvhTree.root->right->bb.getMin() << endl;
+
+    pixThreads = new thread[threads];
+    pixThreadsDone = new bool[threads];
+	for(int i = 0; i < threads; ++i){
+		pixThreadsDone[i] = false;
+	}
+    cout << "threads: " << threads << endl;
 }
 
 /*
@@ -321,28 +320,55 @@ void RayTracer::traceImage(int w, int h)
 	// Always call traceSetup before rendering anything.
 	traceSetup(w,h);
 
-	// YOUR CODE HERE
-	// FIXME: Start one or more threads for ray tracing
-	//
-	// TIPS: Ideally, the traceImage should be executed asynchronously,
-	//       i.e. returns IMMEDIATELY after working threads are launched.
-	//
-	//       An asynchronous traceImage lets the GUI update your results
-	//       while rendering.
-	for(unsigned int i = 0; i < w; ++i){
-		auto start = chrono::steady_clock::now();
-		for(unsigned int j = 0; j < h; ++j){
-			tracePixel(i, j);
-		}
-		std::cout << "Avg. elapsed(ms) = " << chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now()-start).count() / (double) h << "\n";
-		if(i % 32 == 0){
-			cout << "col: " << i << "\n";
-			cout << "total traverals: " << bvhTree.traversals << endl;
-			cout << "visit %: " << bvhTree.percentSum / bvhTree.traversals << endl;
-		}
+	// Enable/disable depth of field with below config
+	const bool USE_DOF = false;
+    // Good config for easy3: fd = 8.5, a = 0.2
+	// Good config for reflection2: fd = 6, a = 0.3
+    const double FOCAL_DISTANCE = 6;
+    // Side length of camera aperture (square)
+    const double APERTURE = 0.3;
+    // Number of samples per pixel
+    const unsigned int SAMPLES = 16;
 
-		bvhTree.traversals = 0;
-		bvhTree.percentSum = 0;
+    // YOUR CODE HERE
+    // FIXME: Start one or more threads for ray tracing
+    //
+    // TIPS: Ideally, the traceImage should be executed asynchronously,
+    //       i.e. returns IMMEDIATELY after working threads are launched.
+    //
+    //       An asynchronous traceImage lets the GUI update your results
+    //       while rendering.
+
+	int debugInterval = 16;
+
+	for(int threadId = 0; threadId < threads; ++threadId){
+		pixThreads[threadId] = std::thread([=]() {
+			auto start = chrono::steady_clock::now();
+			uniform_real_distribution<double> unif(-APERTURE, APERTURE);
+			default_random_engine re;
+			int count = 0;
+			// Compute pixels for this thread
+			for (int index1d = threadId; index1d < w * h; index1d += threads) {
+				count++;
+				int i = index1d / h;
+				int j = index1d % h;
+// 				if(threadId == 0){
+// 					if(count % (512) == 0){
+// 						cout << "count: " << count << endl;
+// std::cout << "Avg. elapsed(ms) = " << chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now() - start).count() / (double)count << "\n";
+// 						cout << "thread 0 finished col: " << i << endl;
+// 						start = chrono::steady_clock::now();
+// 						count = 0;
+// 					}
+// 				}
+				if (USE_DOF) {
+					tracePixelDOF(i, j, FOCAL_DISTANCE, SAMPLES, unif, re);
+				} else {
+					tracePixel(i, j);
+				}
+			}
+			pixThreadsDone[threadId] = true;
+		});
 	}
 }
 
@@ -394,6 +420,13 @@ bool RayTracer::checkRender()
 	//
 	// TIPS: Introduce an array to track the status of each worker thread.
 	//       This array is maintained by the worker threads.
+	if(!pixThreadsDone) return true;
+	for (int i = 0; i < threads; ++i) {
+		if(!pixThreadsDone[i]){
+			return false;
+		}
+	}
+	waitRender();
 	return true;
 }
 
@@ -405,6 +438,14 @@ void RayTracer::waitRender()
 	//        traceImage implementation.
 	//
 	// TIPS: Join all worker threads here.
+	for(int i = 0; i < threads; ++i){
+		pixThreads[i].join();
+	}
+	delete[] pixThreads;
+	delete[] pixThreadsDone;
+	pixThreads = 0;
+	pixThreadsDone = 0;
+	cout << " ------------- done" << endl;
 }
 
 

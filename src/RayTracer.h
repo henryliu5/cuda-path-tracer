@@ -13,6 +13,8 @@
 #include "scene/ray.h"
 #include <mutex>
 #include "scene/bvh.h"
+#include <random>
+#include <thread>
 
 class Scene;
 class Pixel {
@@ -54,9 +56,13 @@ public:
 
 	const Scene& getScene() { return *scene; }
 
+	void tracePixelDOF(int i, int j, double FOCAL_DISTANCE, unsigned int SAMPLES, std::uniform_real_distribution<double>& unif, std::default_random_engine& re);
+	glm::dvec3 traceDOF(double x, double y);
+
 	bool stopTrace;
 	BVHTree bvhTree;
 private:
+	glm::dvec3 getFocalPoint(int x, int y, double focalDistance);
 	glm::dvec3 trace(double x, double y);
 
 	std::vector<unsigned char> buffer;
@@ -68,7 +74,8 @@ private:
 	double aaThresh;
 	int samples;
 	std::unique_ptr<Scene> scene;
-	
+	std::thread* pixThreads;
+	bool* pixThreadsDone;
 	bool m_bBufferReady;
 
 };

@@ -107,8 +107,9 @@ bool TrimeshFace::intersectLocal(ray& r, isect& i) const
 	double denominator = glm::dot(r.getDirection(), normal);
 
 	if(denominator >= 0){
-		//cerr << "0" << endl;
-		return false;
+		if(!material->Recur() || denominator == 0){
+			return false;
+		}
 	}
 
 	double t = numerator / denominator;
