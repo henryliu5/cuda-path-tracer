@@ -19,6 +19,7 @@ BVHTree::BVHTree(){
     percentSum = 0;
     traverseCount = 0;
     traversals = 0;
+    visitBoth = 0;
 }
 
 void splitLargeGeo(vector<Geometry*>& geo){
@@ -105,10 +106,12 @@ void BVHTree::build(unique_ptr<Scene>& scene){
         return;
     }
     vector<Geometry*> geo;
+    cout << "scene obj size: " << scene->objects.size() << endl;
     for(Geometry* g: scene->objects){
         auto x = g->getAll();
         geo.insert(geo.end(), x.begin(), x.end());
     }
+    cout << geo.size() << endl;
 
     // splitLargeGeo(geo);
 
@@ -150,7 +153,7 @@ BoundingBox getBox(vector<Geometry*>& geo, int st, int end){
 int split(vector<Geometry*>& geo, int st, int end){
     int mid = st + (end - st) / 2;
     return mid;
-    int samples = 100;
+    int samples = 500;
     int best = mid;
     double cost = numeric_limits<double>::max();
     BoundingBox total = getBox(geo, st, end);
@@ -159,17 +162,17 @@ int split(vector<Geometry*>& geo, int st, int end){
         BoundingBox sA = getBox(geo, st, i);
         BoundingBox sB = getBox(geo, i, end);
 
-        // double myCost = 1 + (sA.area() / total.area()) * (i - st) + (sB.area() / total.area()) * (end - i);
+        double myCost = 1 + (sA.area() / total.area()) * (i - st) + (sB.area() / total.area()) * (end - i);
         // cout << "\t" << myCost << " " << sA.area() / total.area() << " " << sB.area() / total.area() << endl;
         // double myCost = sA.area() / total.area() + sB.area() / total.area();
-        double myCost = sA.volume() + sB.volume();
-        cout << "\t" << myCost << " " << sA.volume() << " " << sB.volume() << endl;
-        if(myCost < cost){
-            cost = myCost;
-            best = i;
-        }
+        // double myCost = sA.volume() + sB.volume();
+        // cout << "\t" << myCost << " " << sA.volume() << " " << sB.volume() << endl;
+        // if(myCost < cost){
+        //     cost = myCost;
+        //     best = i;
+        // }
     }
-    cout << st << " " << best << " " << end << endl;
+    // cout << st << " " << best << " " << end << endl;
     // exit(0);
     return best;
 }
@@ -196,42 +199,45 @@ BVHNode* BVHTree::buildHelper(vector<Geometry*>& geo, int st, int end){
     glm::dvec3 maxs = node->bb.getMax();
 
     auto diff = maxs - mins;
-
     // Find longest axis
-    double center;
+    // double center;
     int centerIndex;
-    if(diff[0] > diff[1] && diff[0] > diff[2]){
+    if(diff[0] >= diff[1] && diff[0] >= diff[2]){
         // x
-        center = diff[0] / 2 + mins[0];
+        // center = diff[0] / 2 + mins[0];
         centerIndex = 0;
-    } else if(diff[1] > diff[0] && diff[1] > diff[2]){
+    } else if(diff[1] >= diff[0] && diff[1] >= diff[2]){
         // y
-        center = diff[1] / 2 + mins[1];
+        // center = diff[1] / 2 + mins[1];
         centerIndex = 1;
     } else {
         // z
-        center = diff[2] / 2 + mins[2];
+        // center = diff[2] / 2 + mins[2];
         centerIndex = 2;
     }
+
+    stable_sort(geo.begin() + st, geo.begin() + end, [=](Geometry* a, Geometry* b) {
+        glm::dvec3 a_c = (a->getBoundingBox().getMin() + a->getBoundingBox().getMax()) / glm::dvec3 { 2.0, 2.0, 2.0 };
+        glm::dvec3 b_c = (b->getBoundingBox().getMin() + b->getBoundingBox().getMax()) / glm::dvec3 { 2.0, 2.0, 2.0 };
+        // if(a_c[centerIndex] == b_c[centerIndex]){
+        //     return a_c[(centerIndex + 1) % 3] < b_c[(centerIndex + 1) % 3];
+        // }
+        return a_c[centerIndex] < b_c[centerIndex];
+    });
 
     // cout << "ci: " << centerIndex << endl;
     // for(int i = 0; i < 10; i++){
     //     TrimeshFace* tri = ((TrimeshFace* )geo[i]);
 
-    //     cout << "v: " << tri->parent->vertices[tri->ids[0]] << " " << tri->parent->vertices[tri->ids[1]] << " " << tri->parent->vertices[tri->ids[2]] << endl;
-    //     // auto x  = (geo[i]->getBoundingBox().getMin() + geo[i]->getBoundingBox().getMax()) / glm::dvec3 { 2.0, 2.0, 2.0 };
-    //     // cout << x << endl;
-    //     cout << "min: " << geo[i]->getBoundingBox().getMin() << endl;
-    //     cout << "max: " << geo[i]->getBoundingBox().getMax() << endl;
+    //     // cout << "v: " << tri->parent->vertices[tri->ids[0]] << " " << tri->parent->vertices[tri->ids[1]] << " " << tri->parent->vertices[tri->ids[2]] << endl;
+    //     auto x  = (geo[i]->getBoundingBox().getMin() + geo[i]->getBoundingBox().getMax()) / glm::dvec3 { 2.0, 2.0, 2.0 };
+    //     cout << x << endl;
+    //     // cout << "min: " << geo[i]->getBoundingBox().getMin() << endl;
+    //     // cout << "max: " << geo[i]->getBoundingBox().getMax() << endl;
 
     // }
     // exit(0);
 
-    sort(geo.begin() + st, geo.begin() + end, [=](Geometry* a, Geometry* b) {
-        glm::dvec3 a_c = (a->getBoundingBox().getMin() + a->getBoundingBox().getMax()) / glm::dvec3 { 2.0, 2.0, 2.0 };
-        glm::dvec3 b_c = (b->getBoundingBox().getMin() + b->getBoundingBox().getMax()) / glm::dvec3 { 2.0, 2.0, 2.0 };
-        return a_c[centerIndex] < b_c[centerIndex];
-    });
 
     // for(int i = 0; i < geo.size(); ++i){
     //     if (i < geo.size() / 2) {
@@ -258,9 +264,10 @@ bool BVHTree::traverse(ray& r, isect& i)
 {
     traverseCount = 0;
     misses = 0;
+    visitBoth = 0;
     if(debugMode) cout << "--- starting traverse --- " << endl;
     i = traverseHelper(r, root);
-    bool res = i.getT() != -1;
+    bool res = i.getT() >= 0;
     if(!res){
         i.setT(1000.0);
     }
@@ -309,17 +316,30 @@ isect BVHTree::traverseHelper(ray& r, BVHNode* n){
     if(!n->bb.intersect(r, tMin, tMax)){
         if(debugMode) cout << "skipping bb" << endl;
         misses++;
+        res.setT(-2);
         return res;
     }
     
     isect li = traverseHelper(r, n->left);
     isect ri = traverseHelper(r, n->right);
 
-    if(li.getT() == -1){
+    if(li.getT() == -1 && ri.getT() == -1)
+        visitBoth++;
+
+    if(li.getT() < 0){
         return ri;
-    } else if(ri.getT() == -1){
+    } else if(ri.getT() < 0){
         return li;
     } else {
         return li.getT() < ri.getT() ? li : ri;
     }
+}
+
+int BVHTree::height(){
+    return heightHelper(root);
+}
+
+int BVHTree::heightHelper(BVHNode* n){
+    if(!n) return 0;
+    return 1 + max(heightHelper(n->left), heightHelper(n->right));
 }

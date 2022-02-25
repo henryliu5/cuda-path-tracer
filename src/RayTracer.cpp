@@ -53,8 +53,12 @@ glm::dvec3 RayTracer::trace(double x, double y)
 }
 
 // trace pixel thru window coord
+extern int intersectCallCount;
+extern int trimeshCount;
 glm::dvec3 RayTracer::tracePixel(int i, int j)
 {
+	intersectCallCount = 0;
+	trimeshCount = 0;
 	glm::dvec3 col(0,0,0);
 
 	if( ! sceneLoaded() ) return col;
@@ -69,6 +73,10 @@ glm::dvec3 RayTracer::tracePixel(int i, int j)
 	pixel[0] = (int)( 255.0 * col[0]);
 	pixel[1] = (int)( 255.0 * col[1]);
 	pixel[2] = (int)( 255.0 * col[2]);
+	// cout << "intersectCallCount: " << intersectCallCount << endl;
+	// cout << "visitBoth: " << bvhTree.visitBoth << endl;
+	// cout << "traverseCount: " << bvhTree.traverseCount << endl;
+	// cout << "trimeshCount: " << trimeshCount << endl;
 	return col;
 }
 
@@ -320,6 +328,7 @@ void RayTracer::traceSetup(int w, int h)
 	// YOUR CODE HERE
 	// FIXME: Additional initializations
 	bvhTree.build(scene);
+	scene->bvhTree = &bvhTree;
 
 	// cout << "max: " << bvhTree.root->bb.getMax() << endl;
 	// cout << "min: " << bvhTree.root->bb.getMin() << endl;
@@ -335,6 +344,7 @@ void RayTracer::traceSetup(int w, int h)
 		pixThreadsDone[i] = false;
 	}
     cout << "threads: " << threads << endl;
+	cout << "tree height: " << bvhTree.height() << endl;
 }
 
 /*
@@ -385,15 +395,22 @@ void RayTracer::traceImage(int w, int h)
 				count++;
 				int i = index1d / h;
 				int j = index1d % h;
-// 				if(threadId == 0){
-// 					if(count % (512) == 0){
-// 						cout << "count: " << count << endl;
-// std::cout << "Avg. elapsed(ms) = " << chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now() - start).count() / (double)count << "\n";
-// 						cout << "thread 0 finished col: " << i << endl;
-// 						start = chrono::steady_clock::now();
-// 						count = 0;
-// 					}
-// 				}
+				if(threadId == 0){
+					if(count % (512) == 0){
+						cout << "count: " << count << endl;
+std::cout << "Avg. elapsed(ms) = " << chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now() - start).count() / (double)count << "\n";
+						cout << "thread 0 finished col: " << i << endl;
+						start = chrono::steady_clock::now();
+						count = 0;
+
+						cout << "total traverals: " << bvhTree.traverseCount << endl;
+						cout << "visit %: " << bvhTree.percentSum / bvhTree.traversals << endl;
+
+						bvhTree.traversals = 0;
+						bvhTree.percentSum = 0;
+					}
+					
+				}
 				if (USE_DOF) {
 					tracePixelDOF(i, j, FOCAL_DISTANCE, SAMPLES, unif, re);
 				} else if (traceUI->aaSwitch()) { 

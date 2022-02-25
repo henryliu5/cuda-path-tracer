@@ -5,6 +5,7 @@
 #include "scene.h"
 #include <vector>
 
+class Geometry; 
 struct BVHNode{
     BVHNode(BVHNode* l, BVHNode* r, Geometry* g) : left(l), right(r), geometry(g) {}
     BVHNode* left;
@@ -24,10 +25,15 @@ public:
     int traverseCount;
     int traversals;
     double percentSum;
+    int visitBoth; 
+
+    int height();
 
 protected:
     BVHNode* buildHelper(std::vector<Geometry*>& geo, int st, int end);
     isect traverseHelper(ray& r, BVHNode* n);
+
+    int heightHelper(BVHNode*);
 
     bool built;
     int size;

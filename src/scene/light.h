@@ -15,7 +15,7 @@ class Light
 	: public SceneElement
 {
 public:
-	glm::dvec3 shadowAttenuation(const ray& r, const glm::dvec3& pos) const;
+	glm::dvec3 shadowAttenuation(const ray& r, const glm::dvec3& pos, const isect& i) const;
 	glm::dvec3 shade(const ray& r, const isect& i) const;
 	virtual double distanceAttenuation(const glm::dvec3& P) const = 0;
 	virtual glm::dvec3 getColor() const = 0;

@@ -4,6 +4,7 @@
 #include "light.h"
 #include <glm/glm.hpp>
 #include <glm/gtx/io.hpp>
+#include <unordered_set>
 
 
 using namespace std;
@@ -49,7 +50,7 @@ glm::dvec3 PointLight::getDirection(const glm::dvec3& P) const
 
 extern bool debugMode;
 
-glm::dvec3 Light::shadowAttenuation(const ray& r, const glm::dvec3& p) const
+glm::dvec3 Light::shadowAttenuation(const ray& r, const glm::dvec3& p, const isect& originalI) const
 {
     // YOUR CODE HERE:
     // You should implement shadow-handling code here.
@@ -57,64 +58,68 @@ glm::dvec3 Light::shadowAttenuation(const ray& r, const glm::dvec3& p) const
 
     // Shadow ray
 	glm::dvec3 dir = r.getDirection();
-    double t = 0.0;
+    double t = 1e-6;
+
+    vector<pair<glm::dvec3, const SceneObject*>> v;
+    isect lastI = originalI;
 
     while (true) {
         ray shadowR(p + t * dir, dir, r.getAtten(), ray::SHADOW);
-        isect shadowI;
-        isect shadowI2;
+        isect curI;
 
-        if (scene->intersect2(shadowR, shadowI, shadowI2)) {
-            if (shadowI.getT() < 0 || shadowI2.getT() < 0) {
-                cout << "x" << endl;
-                exit(0);
-            }
-            double t1;
-            double t2;
-            // cout << "shadowI T: " << shadowI.getT() << " shadowI2 T: " << shadowI2.getT() << endl;
-            // Intersected twice
-            if (shadowI.getObject() == shadowI2.getObject()) {
-                // if(shadowI.getObject() != i.getObject()){
-                t1 = shadowI.getT();
-                t2 = shadowI.getT() + shadowI2.getT();
-            } else { // Once
-                t1 = 0;
-                t2 = shadowI.getT();
-            }
+        if (scene->bvhTree->traverse(shadowR, curI)) {
+            v.push_back(make_pair(shadowR.at(curI), curI.getObject()));
 
-            // Check if behind light
-            glm::dvec3 lightDir = getDirection(shadowR.at(t2));
-            glm::dvec3 lightDir2 = getDirection(shadowR.at(t1));
-            if (glm::dot(lightDir, lightDir2) <= 0) {
-				// return result;
-                break;
+            if(debugMode) cout << "intersected" << endl;
+            
+            double t1 = 0;
+            double t2 = curI.getT();
+            glm::dvec3 kt = curI.getObject()->getMaterial().kt(curI);
+
+            bool ok = curI.getObject() == lastI.getObject() || kt == glm::dvec3(0.0,0.0,0.0);
+
+            glm::dvec3 oldPos = p + t * dir;
+            for(int i = v.size() - 2; i >= max((int)v.size() - 4, 0); --i){
+                if(v[i].second == curI.getObject()){
+                    oldPos = v[i].first;
+                    ok = true;
+                    v.pop_back();
+                    v.erase(v.begin() + i);
+                    break;
+                }
             }
 
-            double d = glm::length(shadowR.at(t2) - shadowR.at(t1));
-            glm::dvec3 kt = shadowI.getObject()->getMaterial().kt(shadowI);
-            result *= glm::pow(kt, { d, d, d });
-            if (debugMode)
-                cout << "applying kt: " << kt << " d: " << d << " t1: " << t1 << " t2: " << t2 << endl;
+            if (ok) {
+                // Check if behind light
+                glm::dvec3 lightDir = getDirection(shadowR.at(curI));
+                glm::dvec3 lightDir2 = getDirection(shadowR.at(0));
+                if (glm::dot(lightDir, lightDir2) <= 0) {
+                    if(debugMode) cout << "past light" << endl;
+                    break;
+                }
+                double d = glm::length(shadowR.at(curI) - oldPos);
+                
+                result *= glm::pow(kt, { d, d, d });
 
-            if (debugMode)
-                cout << "t1 pos: " << shadowR.at(t1) << " t2 pos: " << shadowR.at(t2) << endl;
-            // Threshold if time small
-            if (t2 <= 1e-6) {
-                // return result;
-                break;
-            }
+                if (debugMode)
+                    cout << "applying kt: " << kt << " d: " << d << " t1: " << t1 << " t2: " << t2 << endl;
 
-            if (kt == glm::dvec3(0, 0, 0)) {
-                // return result;
-                break;
+                if (debugMode)
+                    cout << "t1 pos: " << shadowR.at(t1) << " t2 pos: " << shadowR.at(t2) << endl;
+                // Threshold if time small
+                if (t2 <= 1e-6) {
+                    break;
+                }
+
+                if (kt == glm::dvec3(0, 0, 0)) {
+                    break;
+                }
             }
-            t += t2;
+            lastI = curI;
+            t += t2 + 1e-6;
         } else {
-            // return result;
             break;
         }
-        // TODO REMOVE
-        // break;
     }
 
     return result;
@@ -162,7 +167,7 @@ glm::dvec3 Light::shade(const ray& r, const isect& i) const {
     glm::dvec3 p = r.at(i.getT() - 1e-12); // shift in direction of normal
     glm::dvec3 dir = getDirection(r.at(i));
     ray shadowR(p, dir, r.getAtten(), ray::SHADOW);
-    phong *= shadowAttenuation(shadowR, p);
+    phong *= shadowAttenuation(shadowR, p, i);
 
     if(debugMode) cout << "phong: " << phong << endl;
     return phong;

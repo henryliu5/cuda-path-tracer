@@ -56,7 +56,6 @@ private:
 	RayType t;
 };
 
-
 // The description of an intersection point.
 
 class isect {

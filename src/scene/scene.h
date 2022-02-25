@@ -29,6 +29,7 @@
 #include <glm/vec4.hpp>
 
 #include <iostream>
+#include "bvh.h"
 using namespace std;
 
 using std::unique_ptr;
@@ -39,6 +40,7 @@ class Scene;
 template <typename Obj>
 class KdTree;
 class SplitGeo;
+class BVHTree;
 
 class SceneElement {
 public:
@@ -277,6 +279,7 @@ public:
 	const BoundingBox& bounds() const { return sceneBounds; }
 
 	std::vector<Geometry*> objects;
+	BVHTree* bvhTree;
 private:
 	
 	std::vector<std::unique_ptr<Light>> lights;

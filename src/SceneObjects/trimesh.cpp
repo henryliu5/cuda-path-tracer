@@ -8,6 +8,8 @@
 #include "../ui/TraceUI.h"
 extern TraceUI* traceUI;
 
+int intersectCallCount = 0;
+int trimeshCount = 0;
 using namespace std;
 
 Trimesh::~Trimesh()
@@ -69,6 +71,7 @@ const char* Trimesh::doubleCheck()
 
 bool Trimesh::intersectLocal(ray& r, isect& i) const
 {
+	trimeshCount++;
 	bool have_one = false;
 	for (auto face : faces) {
 		isect cur;
@@ -94,6 +97,7 @@ bool TrimeshFace::intersect(ray& r, isect& i) const
 // intersection in u (alpha) and v (beta).
 bool TrimeshFace::intersectLocal(ray& r, isect& i) const
 {
+	intersectCallCount++;
 	// YOUR CODE HERE
 	//
 	// FIXME: Add ray-trimesh intersection
