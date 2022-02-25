@@ -102,27 +102,27 @@ void BVHTree::build(unique_ptr<Scene>& scene){
     this->scene = scene.get();
 
     if(built) {
-        cout << "built" << endl; 
+        // cout << "built" << endl; 
         return;
     }
     vector<Geometry*> geo;
-    cout << "scene obj size: " << scene->objects.size() << endl;
+    // cout << "scene obj size: " << scene->objects.size() << endl;
     for(Geometry* g: scene->objects){
         auto x = g->getAll();
         geo.insert(geo.end(), x.begin(), x.end());
     }
-    cout << geo.size() << endl;
+    // cout << geo.size() << endl;
 
     // splitLargeGeo(geo);
 
     root = buildHelper(geo, 0, geo.size());
     built = true;
 
-    cout << leaves << " " << geo.size() << endl;
-    if(leaves != geo.size()){
-        cout << "missing elements" << endl;
-        exit(0);
-    }
+    // cout << leaves << " " << geo.size() << endl;
+    // if(leaves != geo.size()){
+    //     cout << "missing elements" << endl;
+    //     exit(0);
+    // }
 }
 
 BoundingBox getBox(vector<Geometry*>& geo, int st, int end){
@@ -130,10 +130,10 @@ BoundingBox getBox(vector<Geometry*>& geo, int st, int end){
     glm::dvec3 bestMax = geo[st]->getBoundingBox().getMax();
 
     for(int i = st + 1; i < end; i++){
-        if(!geo[i]->hasBoundingBoxCapability()){
-            cout << "rip" << endl;
-            exit(0);
-        }
+        // if(!geo[i]->hasBoundingBoxCapability()){
+        //     cout << "rip" << endl;
+        //     exit(0);
+        // }
 
         glm::dvec3 mins = geo[i]->getBoundingBox().getMin();
         glm::dvec3 maxs = geo[i]->getBoundingBox().getMax();

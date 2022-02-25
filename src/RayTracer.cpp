@@ -343,7 +343,7 @@ void RayTracer::traceSetup(int w, int h)
 	for(int i = 0; i < threads; ++i){
 		pixThreadsDone[i] = false;
 	}
-    cout << "threads: " << threads << "\n";
+    // cout << "threads: " << threads << "\n";
 }
 
 /*
@@ -476,7 +476,7 @@ void RayTracer::waitRender()
 	// delete[] pixThreadsDone;
 	// pixThreads = 0;
 	// pixThreadsDone = 0;
-	cout << " ------------- done" << endl;
+	// cout << " ------------- done" << endl;
 }
 
 
