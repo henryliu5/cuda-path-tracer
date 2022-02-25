@@ -184,6 +184,8 @@ public:
 	{
 	}
 	
+	virtual glm::dvec3 center();
+
 	virtual std::vector<Geometry*> getAll(){
 		return std::vector<Geometry*>{this};
 	}

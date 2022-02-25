@@ -60,7 +60,7 @@ glm::dvec3 Light::shadowAttenuation(const ray& r, const glm::dvec3& p, const ise
 	glm::dvec3 dir = r.getDirection();
     double t = 1e-6;
 
-    vector<pair<glm::dvec3, const SceneObject*>> v;
+    // vector<pair<glm::dvec3, const SceneObject*>> v;
     isect lastI = originalI;
 
     while (true) {
@@ -68,9 +68,9 @@ glm::dvec3 Light::shadowAttenuation(const ray& r, const glm::dvec3& p, const ise
         isect curI;
 
         if (scene->bvhTree->traverse(shadowR, curI)) {
-            v.push_back(make_pair(shadowR.at(curI), curI.getObject()));
+            // v.push_back(make_pair(shadowR.at(curI), curI.getObject()));
 
-            if(debugMode) cout << "intersected" << endl;
+            // if(debugMode) cout << "intersected" << endl;
             
             double t1 = 0;
             double t2 = curI.getT();
@@ -79,22 +79,22 @@ glm::dvec3 Light::shadowAttenuation(const ray& r, const glm::dvec3& p, const ise
             bool ok = curI.getObject() == lastI.getObject() || kt == glm::dvec3(0.0,0.0,0.0);
 
             glm::dvec3 oldPos = p + t * dir;
-            for(int i = v.size() - 2; i >= max((int)v.size() - 4, 0); --i){
-                if(v[i].second == curI.getObject()){
-                    oldPos = v[i].first;
-                    ok = true;
-                    v.pop_back();
-                    v.erase(v.begin() + i);
-                    break;
-                }
-            }
+            // for(int i = v.size() - 2; i >= max((int)v.size() - 1000, 0); --i){
+            //     if(v[i].second == curI.getObject()){
+            //         oldPos = v[i].first;
+            //         ok = true;
+            //         v.pop_back();
+            //         v.erase(v.begin() + i);
+            //         break;
+            //     }
+            // }
 
             if (ok) {
                 // Check if behind light
                 glm::dvec3 lightDir = getDirection(shadowR.at(curI));
                 glm::dvec3 lightDir2 = getDirection(shadowR.at(0));
                 if (glm::dot(lightDir, lightDir2) <= 0) {
-                    if(debugMode) cout << "past light" << endl;
+                    // if(debugMode) cout << "past light" << endl;
                     break;
                 }
                 double d = glm::length(shadowR.at(curI) - oldPos);
@@ -106,6 +106,7 @@ glm::dvec3 Light::shadowAttenuation(const ray& r, const glm::dvec3& p, const ise
 
                 if (debugMode)
                     cout << "t1 pos: " << shadowR.at(t1) << " t2 pos: " << shadowR.at(t2) << endl;
+                    
                 // Threshold if time small
                 if (t2 <= 1e-6) {
                     break;
@@ -127,7 +128,7 @@ glm::dvec3 Light::shadowAttenuation(const ray& r, const glm::dvec3& p, const ise
 
 glm::dvec3 Light::shade(const ray& r, const isect& i) const {
     Material curMat = i.getMaterial();
-    if(debugMode) cout << "doing light: " << getColor() << endl;
+    // if(debugMode) cout << "doing light: " << getColor() << endl;
     // TODO sus?
     glm::dvec3 i_in = getColor();
     i_in *= distanceAttenuation(r.at(i));
@@ -169,7 +170,7 @@ glm::dvec3 Light::shade(const ray& r, const isect& i) const {
     ray shadowR(p, dir, r.getAtten(), ray::SHADOW);
     phong *= shadowAttenuation(shadowR, p, i);
 
-    if(debugMode) cout << "phong: " << phong << endl;
+    // if(debugMode) cout << "phong: " << phong << endl;
     return phong;
 }
 

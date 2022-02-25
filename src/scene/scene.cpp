@@ -89,6 +89,11 @@ void Geometry::ComputeBoundingBox() {
     bounds.setMin(glm::dvec3(newMin));
 }
 
+glm::dvec3 Geometry::center()
+{
+    return (getBoundingBox().getMin() + getBoundingBox().getMax()) / glm::dvec3 { 2.0, 2.0, 2.0 };
+}
+
 Scene::Scene()
 {
 	ambientIntensity = glm::dvec3(0, 0, 0);

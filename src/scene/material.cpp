@@ -46,7 +46,7 @@ glm::dvec3 Material::shade(Scene* scene, const ray& r, const isect& i) const
 	{		
 		sum += pLight->shade(r, i);
     }
-	if(debugMode) cout << "sum: " << sum << endl;
+	// if(debugMode) cout << "sum: " << sum << endl;
 	return sum;
 }
 

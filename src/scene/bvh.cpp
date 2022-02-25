@@ -38,12 +38,12 @@ void splitLargeGeo(vector<Geometry*>& geo){
     cout << "max: " << maxVol << endl;
 
     // vector<Geometry*> temp(geo);
-    while(maxVol > mean + stdev){
+    while(maxVol > mean + stdev * 5){
         maxVol = 0;
         int n = geo.size();
         for(int i = 0; i < n; i++){
             // Do split
-            if(geo[i]->getBoundingBox().volume() > mean + stdev){
+            if(geo[i]->getBoundingBox().volume() > mean + stdev * 5){
                 // cout << "splitting" << endl;
                 glm::dvec3 mins = geo[i]->getBoundingBox().getMin();
                 glm::dvec3 maxs = geo[i]->getBoundingBox().getMax();
@@ -53,11 +53,11 @@ void splitLargeGeo(vector<Geometry*>& geo){
                 // Find longest axis
                 double center;
                 int centerIndex;
-                if (diff[0] > diff[1] && diff[0] > diff[2]) {
+                if (diff[0] >= diff[1] && diff[0] >= diff[2]) {
                     // x
                     center = diff[0] / 2 + mins[0];
                     centerIndex = 0;
-                } else if (diff[1] > diff[0] && diff[1] > diff[2]) {
+                } else if (diff[1] >= diff[0] && diff[1] >= diff[2]) {
                     // y
                     center = diff[1] / 2 + mins[1];
                     centerIndex = 1;
@@ -126,10 +126,10 @@ void BVHTree::build(unique_ptr<Scene>& scene){
 }
 
 BoundingBox getBox(vector<Geometry*>& geo, int st, int end){
-    double minX, minY, minZ = numeric_limits<double>::max();
-    double maxX, maxY, maxZ = numeric_limits<double>::min();
+    glm::dvec3 bestMin = geo[st]->getBoundingBox().getMin();
+    glm::dvec3 bestMax = geo[st]->getBoundingBox().getMax();
 
-    for(int i = st; i < end; i++){
+    for(int i = st + 1; i < end; i++){
         if(!geo[i]->hasBoundingBoxCapability()){
             cout << "rip" << endl;
             exit(0);
@@ -138,22 +138,20 @@ BoundingBox getBox(vector<Geometry*>& geo, int st, int end){
         glm::dvec3 mins = geo[i]->getBoundingBox().getMin();
         glm::dvec3 maxs = geo[i]->getBoundingBox().getMax();
 
-        minX = min(mins.x, minX);
-        minY = min(mins.y, minY);
-        minZ = min(mins.z, minZ);
-
-        maxX = max(maxs.x, maxX);
-        maxY = max(maxs.y, maxY);
-        maxZ = max(maxs.z, maxZ);
+        bestMin = glm::min(bestMin, mins);
+        bestMax = glm::max(bestMax, maxs);
     }
 
-    return BoundingBox(glm::dvec3(minX, minY, minZ), glm::dvec3(maxX,maxY,maxZ));
+    return BoundingBox(bestMin, bestMax);
 }
 
 int split(vector<Geometry*>& geo, int st, int end){
     int mid = st + (end - st) / 2;
-    return mid;
-    int samples = 500;
+    // return mid;
+    const static int samples = 500;
+    const static double trimeshCost = 1;
+    const static double bbCost = 1;
+
     int best = mid;
     double cost = numeric_limits<double>::max();
     BoundingBox total = getBox(geo, st, end);
@@ -162,15 +160,15 @@ int split(vector<Geometry*>& geo, int st, int end){
         BoundingBox sA = getBox(geo, st, i);
         BoundingBox sB = getBox(geo, i, end);
 
-        double myCost = 1 + (sA.area() / total.area()) * (i - st) + (sB.area() / total.area()) * (end - i);
+        double myCost = bbCost + (sA.area() / total.area()) * (i - st) * trimeshCost + (sB.area() / total.area()) * (end - i) * trimeshCost;
         // cout << "\t" << myCost << " " << sA.area() / total.area() << " " << sB.area() / total.area() << endl;
         // double myCost = sA.area() / total.area() + sB.area() / total.area();
         // double myCost = sA.volume() + sB.volume();
         // cout << "\t" << myCost << " " << sA.volume() << " " << sB.volume() << endl;
-        // if(myCost < cost){
-        //     cost = myCost;
-        //     best = i;
-        // }
+        if(myCost < cost){
+            cost = myCost;
+            best = i;
+        }
     }
     // cout << st << " " << best << " " << end << endl;
     // exit(0);
@@ -185,6 +183,10 @@ BVHNode* BVHTree::buildHelper(vector<Geometry*>& geo, int st, int end){
         cout << "geo 0 " << endl;
         return nullptr;
     }
+
+    // Compute bounding boxes
+    node->bb = getBox(geo, st, end);
+
     // Leaf node
     if(end - st <= 1){
         node->geometry = geo[st];
@@ -192,69 +194,27 @@ BVHNode* BVHTree::buildHelper(vector<Geometry*>& geo, int st, int end){
         return node;
     }
 
-    // Compute bounding boxes
-    node->bb = getBox(geo, st, end);
-
     glm::dvec3 mins = node->bb.getMin();
     glm::dvec3 maxs = node->bb.getMax();
 
     auto diff = maxs - mins;
+
     // Find longest axis
-    // double center;
     int centerIndex;
     if(diff[0] >= diff[1] && diff[0] >= diff[2]){
-        // x
-        // center = diff[0] / 2 + mins[0];
         centerIndex = 0;
     } else if(diff[1] >= diff[0] && diff[1] >= diff[2]){
-        // y
-        // center = diff[1] / 2 + mins[1];
         centerIndex = 1;
     } else {
-        // z
-        // center = diff[2] / 2 + mins[2];
         centerIndex = 2;
     }
 
-    stable_sort(geo.begin() + st, geo.begin() + end, [=](Geometry* a, Geometry* b) {
-        glm::dvec3 a_c = (a->getBoundingBox().getMin() + a->getBoundingBox().getMax()) / glm::dvec3 { 2.0, 2.0, 2.0 };
-        glm::dvec3 b_c = (b->getBoundingBox().getMin() + b->getBoundingBox().getMax()) / glm::dvec3 { 2.0, 2.0, 2.0 };
-        // if(a_c[centerIndex] == b_c[centerIndex]){
-        //     return a_c[(centerIndex + 1) % 3] < b_c[(centerIndex + 1) % 3];
-        // }
-        return a_c[centerIndex] < b_c[centerIndex];
+    sort(geo.begin() + st, geo.begin() + end, [=](Geometry* a, Geometry* b) {
+        return a->center()[centerIndex] < b->center()[centerIndex];
     });
-
-    // cout << "ci: " << centerIndex << endl;
-    // for(int i = 0; i < 10; i++){
-    //     TrimeshFace* tri = ((TrimeshFace* )geo[i]);
-
-    //     // cout << "v: " << tri->parent->vertices[tri->ids[0]] << " " << tri->parent->vertices[tri->ids[1]] << " " << tri->parent->vertices[tri->ids[2]] << endl;
-    //     auto x  = (geo[i]->getBoundingBox().getMin() + geo[i]->getBoundingBox().getMax()) / glm::dvec3 { 2.0, 2.0, 2.0 };
-    //     cout << x << endl;
-    //     // cout << "min: " << geo[i]->getBoundingBox().getMin() << endl;
-    //     // cout << "max: " << geo[i]->getBoundingBox().getMax() << endl;
-
-    // }
-    // exit(0);
-
-
-    // for(int i = 0; i < geo.size(); ++i){
-    //     if (i < geo.size() / 2) {
-    //         l.push_back(geo[i]);
-    //     } else{
-    //         r.push_back(geo[i]);
-    //     }
-    // }
-
     int mid = split(geo, st, end);
 
-    // cout << "starting children" << endl;
-    // cout << "l: " << mid - st << endl;
-    // cout << "r: " << end - mid << endl;
-    // cout << "entering l" << endl;
     node->left = buildHelper(geo, st, mid);
-    // cout << "entering r" << endl;
     node->right = buildHelper(geo, mid, end);
     return node;
 }
@@ -262,69 +222,70 @@ BVHNode* BVHTree::buildHelper(vector<Geometry*>& geo, int st, int end){
 
 bool BVHTree::traverse(ray& r, isect& i)
 {
-    traverseCount = 0;
-    misses = 0;
-    visitBoth = 0;
-    if(debugMode) cout << "--- starting traverse --- " << endl;
+    // traverseCount = 0;
+    // misses = 0;
+    // visitBoth = 0;
+    // if(debugMode) cout << "--- starting traverse --- " << endl;
     i = traverseHelper(r, root);
     bool res = i.getT() >= 0;
-    if(!res){
-        i.setT(1000.0);
-    }
-    if (TraceUI::m_debug) {
-        scene->addToIntersectCache(std::make_pair(new ray(r), new isect(i)));
-    }
-    traversals++;
+    // if(!res){
+    //     i.setT(1000.0);
+    // }
+    // if (TraceUI::m_debug) {
+    //     scene->addToIntersectCache(std::make_pair(new ray(r), new isect(i)));
+    // }
+    // traversals++;
     // cout << traverseCount << " " << size << endl;
-    percentSum += (double) traverseCount / size;
+    // percentSum += (double) traverseCount / size;
     // cout << "prune percentage: " << (double) misses / traverseCount << endl;
     return res;
 }
 
 isect BVHTree::traverseHelper(ray& r, BVHNode* n){
 
-    if(debugMode) cout << "traversing" << endl;
-    traverseCount++;
+    // if(debugMode) cout << "traversing" << endl;
+    // traverseCount++;
     isect res;
     res.setT(-1);
 
-    if(!n){
-        if(debugMode) cout << "off tree" << endl;
-        return res;
-    }
-
-    // If leaf node
-    if (n->geometry) {
-        if(debugMode) cout << "in leaf" << endl;
-        if(debugMode) cout << "ray" << r.getDirection() << " pos: " << r.getPosition() << endl;
-        if(n->geometry->intersect(r, res)){
-            if(debugMode) cout << "got valid int" << endl;
-            return res;
-        }
-        res.setT(-1);
+    if (!n) {
+        // if (debugMode)
+        //     cout << "off tree" << endl;
         return res;
     }
 
     // Check bounding box of current
     double tMin;
     double tMax;
-    if(debugMode){
-        cout << "checking current bb" << endl;
-        cout << n->bb.getMax() << endl;
-        cout << n->bb.getMin() << endl;
-    }
+    // if(debugMode){
+    //     cout << "checking current bb" << endl;
+    //     cout << n->bb.getMax() << endl;
+    //     cout << n->bb.getMin() << endl;
+    // }
     if(!n->bb.intersect(r, tMin, tMax)){
-        if(debugMode) cout << "skipping bb" << endl;
-        misses++;
+        // if(debugMode) cout << "skipping bb" << endl;
+        // misses++;
         res.setT(-2);
         return res;
     }
-    
+
+    // If leaf node
+    if (n->geometry) {
+        // if(debugMode) cout << "in leaf" << endl;
+        // if(debugMode) cout << "ray" << r.getDirection() << " pos: " << r.getPosition() << endl;
+        if(n->geometry->intersect(r, res)){
+            // if(debugMode) cout << "got valid int" << endl;
+            return res;
+        }
+        res.setT(-1);
+        return res;
+    }
+
     isect li = traverseHelper(r, n->left);
     isect ri = traverseHelper(r, n->right);
 
-    if(li.getT() == -1 && ri.getT() == -1)
-        visitBoth++;
+    // if(li.getT() == -1 && ri.getT() == -1)
+    //     visitBoth++;
 
     if(li.getT() < 0){
         return ri;

@@ -90,24 +90,30 @@ class TrimeshFace : public MaterialSceneObject {
 
 	glm::dvec3 normal;
 	double dist;
+	glm::dvec3& a_coords;
+	glm::dvec3& b_coords;
+	glm::dvec3& c_coords;
 
 public:
 
 	Trimesh *parent;
 	int ids[3];
-	TrimeshFace(Scene *scene, Material *mat, Trimesh *parent, int a, int b,
-	            int c)
-	        : MaterialSceneObject(scene, mat)
-	{
+        TrimeshFace(Scene* scene, Material* mat, Trimesh* parent, int a, int b,
+            int c)
+            : MaterialSceneObject(scene, mat)
+            , a_coords(parent->vertices[a])
+            , b_coords(parent->vertices[b])
+            , c_coords(parent->vertices[c])
+        {
 		this->parent = parent;
 		ids[0]       = a;
 		ids[1]       = b;
 		ids[2]       = c;
 
-		// Compute the face normal here, not on the fly
-		glm::dvec3 a_coords = parent->vertices[a];
-		glm::dvec3 b_coords = parent->vertices[b];
-		glm::dvec3 c_coords = parent->vertices[c];
+		// // Compute the face normal here, not on the fly
+		// glm::dvec3 a_coords = parent->vertices[a];
+		// glm::dvec3 b_coords = parent->vertices[b];
+		// glm::dvec3 c_coords = parent->vertices[c];
 
 		glm::dvec3 vab = (b_coords - a_coords);
 		glm::dvec3 vac = (c_coords - a_coords);
@@ -155,6 +161,8 @@ public:
 	}
 
 	const BoundingBox &getBoundingBox() const { return localbounds; }
+
+	glm::dvec3 center();
 };
 
 #endif // TRIMESH_H__

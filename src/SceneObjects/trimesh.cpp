@@ -71,7 +71,7 @@ const char* Trimesh::doubleCheck()
 
 bool Trimesh::intersectLocal(ray& r, isect& i) const
 {
-	trimeshCount++;
+	// trimeshCount++;
 	bool have_one = false;
 	for (auto face : faces) {
 		isect cur;
@@ -97,14 +97,14 @@ bool TrimeshFace::intersect(ray& r, isect& i) const
 // intersection in u (alpha) and v (beta).
 bool TrimeshFace::intersectLocal(ray& r, isect& i) const
 {
-	intersectCallCount++;
+	// intersectCallCount++;
 	// YOUR CODE HERE
 	//
 	// FIXME: Add ray-trimesh intersection
 	// cout << "intersectLocal" << endl;
-	glm::dvec3 a_coords = parent->vertices[ids[0]];
-	glm::dvec3 b_coords = parent->vertices[ids[1]];
-	glm::dvec3 c_coords = parent->vertices[ids[2]];
+	// glm::dvec3 a_coords = parent->vertices[ids[0]];
+	// glm::dvec3 b_coords = parent->vertices[ids[1]];
+	// glm::dvec3 c_coords = parent->vertices[ids[2]];
 
 	// Ray - plane intersection
 	double numerator = -glm::dot(r.getPosition() - a_coords, normal);
@@ -192,6 +192,10 @@ void Trimesh::generateNormals()
 	}
 
 	vertNorms = true;
+}
+
+glm::dvec3 TrimeshFace::center(){
+    return (transform->localToGlobalCoords(parent->vertices[ids[0]]) + transform->localToGlobalCoords(parent->vertices[ids[1]]) + transform->localToGlobalCoords(parent->vertices[ids[2]])) / glm::dvec3 { 3.0, 3.0, 3.0 };
 }
 
 std::vector<Geometry*> Trimesh::getAll(){

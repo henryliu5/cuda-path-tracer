@@ -138,10 +138,10 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 		// rays.
 		const Material& m = i.getMaterial();
 		colorC = m.shade(scene.get(), r, i);
-		if(debugMode) cout << "tracing" << endl;
+		// if(debugMode) cout << "tracing" << endl;
 		if(depth > 0){
 			if(m.Refl()){
-				if(debugMode) cout << "shooting reflection" << endl;
+				// if(debugMode) cout << "shooting reflection" << endl;
 				glm::dvec3 w_in = r.getDirection();
 				glm::dvec3 normal = i.getN();
 				if(r.currentIndex != 1.0){
@@ -159,7 +159,7 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 				colorC += m.kr(i) * temp;
 			}
 			if(m.Trans()){
-				if(debugMode) cout << "shooting refraction" << endl;
+				// if(debugMode) cout << "shooting refraction" << endl;
 				glm::dvec3 w_in = r.getDirection();
 				glm::dvec3 normal = i.getN();
 
@@ -177,7 +177,7 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 				}
 				
 				double n = n1/n2;
-				if(debugMode) cout << "n1: " << n1 << " n2: " << n2 << endl;
+				// if(debugMode) cout << "n1: " << n1 << " n2: " << n2 << endl;
 				w_in = -glm::normalize(w_in);
 				double cosI = glm::dot(normal, w_in);
 				double x = 1 - n*n * (1-cosI*cosI);
@@ -186,23 +186,23 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 
 					glm::dvec3 refrac = (n*cosI - cosT) * normal - n*w_in;
 
-					if(debugMode) cout << "refrac: " << refrac << endl;
+					// if(debugMode) cout << "refrac: " << refrac << endl;
 					ray r2(r.at(i) - normal * 1e-12, glm::normalize(refrac), r.getAtten(), ray::REFRACTION);
 					r2.currentIndex = n2;
 
 					double dum;
 					glm::dvec3 temp = traceRay(r2, glm::dvec3(1.0,1.0,1.0), depth - 1, dum);
-					if(debugMode) cout << "temp : " << temp << endl;
+					// if(debugMode) cout << "temp : " << temp << endl;
 					colorC += trans * temp;		
-					if(debugMode) cout << "colorC: " << colorC << endl;
+					// if(debugMode) cout << "colorC: " << colorC << endl;
 				} else {
-					if(debugMode) cout << "total internal reflection" << endl;
+					// if(debugMode) cout << "total internal reflection" << endl;
 					glm::dvec3 w_in = r.getDirection();
 					glm::dvec3 w_normal = glm::dot(w_in, normal) * normal;
 					glm::dvec3 w_tan = w_in - w_normal;
 					glm::dvec3 w_ref = -w_normal + w_tan;
 					w_ref = glm::normalize(w_ref);
-					ray reflect(r.at(i), w_ref, r.getAtten(), ray::REFLECTION);
+					ray reflect(r.at(i) + normal * 1e-12, w_ref, r.getAtten(), ray::REFLECTION);
 					reflect.currentIndex = r.currentIndex;
 					double dum;
 					glm::dvec3 temp = traceRay(reflect, glm::dvec3(1.0,1.0,1.0), depth - 1, dum);
@@ -343,8 +343,7 @@ void RayTracer::traceSetup(int w, int h)
 	for(int i = 0; i < threads; ++i){
 		pixThreadsDone[i] = false;
 	}
-    cout << "threads: " << threads << endl;
-	cout << "tree height: " << bvhTree.height() << endl;
+    cout << "threads: " << threads << "\n";
 }
 
 /*
@@ -371,7 +370,7 @@ void RayTracer::traceImage(int w, int h)
     const double APERTURE = 0.2;
     // Number of samples per pixel
     const unsigned int SAMPLES = 128;
-	threads = 1;
+
     // YOUR CODE HERE
     // FIXME: Start one or more threads for ray tracing
     //
@@ -391,26 +390,29 @@ void RayTracer::traceImage(int w, int h)
 			
 			int count = 0;
 			// Compute pixels for this thread
-			for (int index1d = threadId; index1d < w * h; index1d += threads) {
-				count++;
-				int i = index1d / h;
-				int j = index1d % h;
-				if(threadId == 0){
-					if(count % (512) == 0){
-						cout << "count: " << count << endl;
-std::cout << "Avg. elapsed(ms) = " << chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now() - start).count() / (double)count << "\n";
-						cout << "thread 0 finished col: " << i << endl;
-						start = chrono::steady_clock::now();
-						count = 0;
+			// for (int index1d = threadId; index1d < w * h; index1d += threads) {
+			int n = w*h;
+			for (int idx = 0; idx < n / threads; ++idx){
+				int index1d = (n / threads) * threadId + idx;
+				// count++;
+				int i = index1d % w;
+				int j = index1d / w;
+// 				if(threadId == 0){
+// 					if(count % (512*64) == 0){
+// 						cout << "count: " << count << endl;
+// std::cout << "Avg. elapsed(ms) = " << chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now() - start).count() / (double)count << "\n";
+// 						cout << "thread 0 finished col: " << i << endl;
+// 						start = chrono::steady_clock::now();
+// 						count = 0;
 
-						cout << "total traverals: " << bvhTree.traverseCount << endl;
-						cout << "visit %: " << bvhTree.percentSum / bvhTree.traversals << endl;
+// 						cout << "total traverals: " << bvhTree.traverseCount << endl;
+// 						cout << "visit %: " << bvhTree.percentSum / bvhTree.traversals << endl;
 
-						bvhTree.traversals = 0;
-						bvhTree.percentSum = 0;
-					}
+// 						bvhTree.traversals = 0;
+// 						bvhTree.percentSum = 0;
+// 					}
 					
-				}
+// 				}
 				if (USE_DOF) {
 					tracePixelDOF(i, j, FOCAL_DISTANCE, SAMPLES, unif, re);
 				} else if (traceUI->aaSwitch()) { 
