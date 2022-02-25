@@ -202,7 +202,7 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 					glm::dvec3 w_tan = w_in - w_normal;
 					glm::dvec3 w_ref = -w_normal + w_tan;
 					w_ref = glm::normalize(w_ref);
-					ray reflect(r.at(i) + normal * 1e-12, w_ref, r.getAtten(), ray::REFLECTION);
+					ray reflect(r.at(i), w_ref, r.getAtten(), ray::REFLECTION);
 					reflect.currentIndex = r.currentIndex;
 					double dum;
 					glm::dvec3 temp = traceRay(reflect, glm::dvec3(1.0,1.0,1.0), depth - 1, dum);
@@ -391,12 +391,10 @@ void RayTracer::traceImage(int w, int h)
 			int count = 0;
 			// Compute pixels for this thread
 			// for (int index1d = threadId; index1d < w * h; index1d += threads) {
-			int n = w*h;
-			for (int idx = 0; idx < n / threads; ++idx){
-				int index1d = (n / threads) * threadId + idx;
-				// count++;
-				int i = index1d % w;
-				int j = index1d / w;
+			// int n = w*h;
+			for (int index1d = threadId; index1d < w * h; index1d += threads) {
+				int i = index1d / h;
+				int j = index1d % h;
 // 				if(threadId == 0){
 // 					if(count % (512*64) == 0){
 // 						cout << "count: " << count << endl;
