@@ -22,6 +22,9 @@
 #include <pthread.h>
 #include <chrono>
 
+#define PI 3.14159265358979311600
+#define SAMPLES_PER_PIXEL 10240
+
 using namespace std;
 extern TraceUI* traceUI;
 
@@ -112,18 +115,84 @@ glm::dvec3 RayTracer::tracePixelAA(int i, int j){
     return colSum;
 }
 
+
+glm::dvec3 RayTracer::tracePixelPath(int i, int j, int samplesPerPixel = SAMPLES_PER_PIXEL) {
+	intersectCallCount = 0;
+	trimeshCount = 0;
+	
+	glm::dvec3 colSum(0, 0, 0);
+
+	if( ! sceneLoaded() ) return colSum;
+
+	double x = double(i)/double(buffer_width);
+	double y = double(j)/double(buffer_height);
+	// update pixel buffer w color
+	for(int i = 0; i < samplesPerPixel; ++i) {
+		glm::dvec3 col(0,0,0);
+		
+		if (!sceneLoaded())
+                return colSum;
+
+		col = trace(x, y);
+
+		colSum += col;
+	}
+	
+	unsigned char *pixel = buffer.data() + ( i + j * buffer_width ) * 3;
+	pixel[0] = (int)( 255.0 * (colSum.x / samplesPerPixel));
+	pixel[1] = (int)( 255.0 * (colSum.y / samplesPerPixel));
+	pixel[2] = (int)( 255.0 * (colSum.z / samplesPerPixel));
+	// cout << "intersectCallCount: " << intersectCallCount << endl;
+	// cout << "visitBoth: " << bvhTree.visitBoth << endl;
+	// cout << "traverseCount: " << bvhTree.traverseCount << endl;
+	// cout << "trimeshCount: " << trimeshCount << endl;
+	return colSum;
+}
+
+//getting random vector in hemisphere: https://www.scratchapixel.com/lessons/3d-basic-rendering/global-illumination-path-tracing/global-illumination-path-tracing-practical-implementation
+glm::dvec3 RayTracer::sampleHemisphere(glm::dvec3& curNorm) {
+	//Generate Sample Vector (Y component is "up")
+	static uniform_real_distribution<double> unif(0, 1);
+	static default_random_engine re;
+
+	double p1 = unif(re);
+	double p2 = unif(re);
+
+	double sinTheta = sqrt(1 - p1 * p1);
+	double phi = 2 * PI * p2;
+	double x = sinTheta * cos(phi);
+	double z = sinTheta * sin(phi);
+	glm::dvec3 localSample(x, 1.0, z);
+
+	//Get Transformation Matrix to transform sample to world (Y vector is "up" -> normal vector is "up")
+	glm::dvec3 normAxis1 = abs(curNorm.x) > abs(curNorm.y) ?  
+						   glm::dvec3(curNorm.z, 0, -curNorm.x) / sqrt(curNorm.x * curNorm.x + curNorm.z * curNorm.z): 
+						   glm::dvec3(0, -curNorm.z, curNorm.y) / sqrt(curNorm.y * curNorm.y + curNorm.z * curNorm.z);
+
+	glm::dvec3 normAxis2 = glm::cross(curNorm, normAxis1);
+
+	glm::dvec3 actualSample(
+		localSample.x * normAxis2.x + localSample.y * curNorm.x + localSample.z * normAxis1.x, 
+		localSample.x * normAxis2.y + localSample.y * curNorm.y + localSample.z * normAxis1.y, 
+		localSample.x * normAxis2.z + localSample.y * curNorm.z + localSample.z * normAxis1.z
+	);
+	
+	return actualSample;
+}
+
+
+
 #define VERBOSE 0
 
 // Do recursive ray tracing!  You'll want to insert a lot of code here
 // (or places called from here) to handle reflection, refraction, etc etc.
-glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, double& t )
+glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, double& t)
 {
 	isect i;
 	glm::dvec3 colorC;
 #if VERBOSE
 	std::cerr << "== current depth: " << depth << std::endl;
 #endif
-
 	// if(scene->intersect(r, i)) {
 	if(bvhTree.traverse(r, i)) {
 		// YOUR CODE HERE
@@ -137,9 +206,18 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 		// more steps: add in the contributions from reflected and refracted
 		// rays.
 		const Material& m = i.getMaterial();
-		colorC = m.shade(scene.get(), r, i);
+		colorC = m.shade(scene.get(), r, i);	
 		// if(debugMode) cout << "tracing" << endl;
 		if(depth > 0){
+			//Path Tracing based on https://www.cs.rpi.edu/~cutler/classes/advancedgraphics/S10/final_projects/carr_hulcher.pdf
+			if(m.Diff()) {
+				glm::dvec3 normal = i.getN();
+				glm::dvec3 rand_dir = glm::normalize(sampleHemisphere(normal));
+				ray r2(r.at(i) + normal * 1e-12, rand_dir, r.getAtten(), ray::REFLECTION);
+				r2.currentIndex = r.currentIndex;
+				double dum;
+				colorC += traceRay(r2, glm::dvec3(1.0,1.0,1.0), depth - 1, dum) * glm::dot(rand_dir, normal);
+			}
 			if(m.Refl()){
 				// if(debugMode) cout << "shooting reflection" << endl;
 				glm::dvec3 w_in = r.getDirection();
@@ -151,12 +229,34 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 				glm::dvec3 w_tan = w_in - w_normal;
 				glm::dvec3 w_ref = -w_normal + w_tan;
 				w_ref = glm::normalize(w_ref);
+
+				
+				glm::dvec3 rand_dir = glm::normalize(sampleHemisphere(normal));
+				// ray reflect(r.at(i) + normal * 1e-12, rand_dir, r.getAtten(), ray::REFLECTION);
 				ray reflect(r.at(i) + normal * 1e-12, w_ref, r.getAtten(), ray::REFLECTION);
+				// ray reflect(r.at(i) + normal * 1e-12, w_ref + (rand_dir*.1), r.getAtten(), ray::REFLECTION);
 				reflect.currentIndex = r.currentIndex;
 
 				double dum;
 				glm::dvec3 temp = traceRay(reflect, glm::dvec3(1.0,1.0,1.0), depth - 1, dum);
 				colorC += m.kr(i) * temp;
+				// colorC += ((m.kr(i) / PI) * temp * glm::dot(rand_dir, normal) / (1 / (2 * PI)));
+
+				// for(int curSample = 0; curSample < SAMPLES_PER_PIXEL; ++curSample) {
+				// 	double p1 = distrib(engine);
+				// 	double p2 = distrib(engine);
+				// 	glm::dvec3 rand_dir = glm::normalize(sampleHemisphere(normal));
+				// 	// cout << "Sample " << curSample << " random vector: " << rand_dir.x << " " << rand_dir.y << " " << rand_dir.z << "\n";
+				// 	ray reflect(r.at(i) + normal * 1e-12, rand_dir, r.getAtten(), ray::REFLECTION);
+				// 	//ray reflect(r.at(i) + normal * 1e-12, w_ref, r.getAtten(), ray::REFLECTION);
+
+				// 	reflect.currentIndex = r.currentIndex;
+
+				// 	double dum;
+				// 	glm::dvec3 temp = traceRay(reflect, glm::dvec3(1.0,1.0,1.0), depth - 1, dum);
+				// 	colorC += m.kr(i) * temp;
+				// }
+				// colorC *= ((2 * PI) / SAMPLES_PER_PIXEL);
 			}
 			if(m.Trans()){
 				// if(debugMode) cout << "shooting refraction" << endl;
@@ -186,15 +286,38 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 
 					glm::dvec3 refrac = (n*cosI - cosT) * normal - n*w_in;
 
-					// if(debugMode) cout << "refrac: " << refrac << endl;
+					glm::dvec3 rand_dir = glm::normalize(sampleHemisphere(normal));
+					// ray r2(r.at(i) - normal * 1e-12, rand_dir, r.getAtten(), ray::REFRACTION);
 					ray r2(r.at(i) - normal * 1e-12, glm::normalize(refrac), r.getAtten(), ray::REFRACTION);
+					// ray r2(r.at(i) - normal * 1e-12, glm::normalize(refrac) + (rand_dir*.1), r.getAtten(), ray::REFRACTION);
 					r2.currentIndex = n2;
+
 
 					double dum;
 					glm::dvec3 temp = traceRay(r2, glm::dvec3(1.0,1.0,1.0), depth - 1, dum);
 					// if(debugMode) cout << "temp : " << temp << endl;
 					colorC += trans * temp;		
 					// if(debugMode) cout << "colorC: " << colorC << endl;
+
+					// for(int curSample = 0; curSample < SAMPLES_PER_PIXEL; ++curSample) {
+					// 	double p1 = distrib(engine);
+					// 	double p2 = distrib(engine);
+					// 	glm::dvec3 rand_dir = glm::normalize(sampleHemisphere(normal));
+					// 	// cout << "Sample " << curSample << " random vector: " << rand_dir.x << " " << rand_dir.y << " " << rand_dir.z << "\n";
+						
+					// 	// if(debugMode) cout << "refrac: " << refrac << endl;
+					// 	ray r2(r.at(i) - normal * 1e-12, glm::normalize(refrac), r.getAtten(), ray::REFRACTION);
+					// 	//ray r2(r.at(i) - normal * 1e-12, rand_dir, r.getAtten(), ray::REFRACTION);
+					// 	r2.currentIndex = n2;
+
+					// 	double dum;
+					// 	glm::dvec3 temp = traceRay(r2, glm::dvec3(1.0,1.0,1.0), depth - 1, dum);
+					// 	// if(debugMode) cout << "temp : " << temp << endl;
+					// 	colorC += trans * temp;		
+					// 	// if(debugMode) cout << "colorC: " << colorC << endl;
+					// }	
+					// colorC *= ((2 * PI) / SAMPLES_PER_PIXEL);
+					
 				} else {
 					// if(debugMode) cout << "total internal reflection" << endl;
 					glm::dvec3 w_in = r.getDirection();
@@ -202,17 +325,37 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 					glm::dvec3 w_tan = w_in - w_normal;
 					glm::dvec3 w_ref = -w_normal + w_tan;
 					w_ref = glm::normalize(w_ref);
+
+					glm::dvec3 rand_dir = glm::normalize(sampleHemisphere(normal));
+
+					// ray reflect(r.at(i) + normal * 1e-12, rand_dir, r.getAtten(), ray::REFLECTION);
 					ray reflect(r.at(i), w_ref, r.getAtten(), ray::REFLECTION);
+					// ray reflect(r.at(i), w_ref + (rand_dir*.1), r.getAtten(), ray::REFLECTION);
 					reflect.currentIndex = r.currentIndex;
+
 					double dum;
 					glm::dvec3 temp = traceRay(reflect, glm::dvec3(1.0,1.0,1.0), depth - 1, dum);
 					colorC += m.kr(i) * trans * temp;
+
+					// for(int curSample = 0; curSample < SAMPLES_PER_PIXEL; ++curSample) {
+					// 	double p1 = distrib(engine);
+					// 	double p2 = distrib(engine);
+					// 	glm::dvec3 rand_dir = glm::normalize(sampleHemisphere(normal));
+					// 	// cout << "Sample " << curSample << " random vector: " << rand_dir.x << " " << rand_dir.y << " " << rand_dir.z << "\n";
+
+					// 	ray reflect(r.at(i) + normal * 1e-12, rand_dir, r.getAtten(), ray::REFLECTION);
+					// 	//ray reflect(r.at(i), w_ref, r.getAtten(), ray::REFLECTION);
+					// 	reflect.currentIndex = r.currentIndex;
+					// 	double dum;
+					// 	glm::dvec3 temp = traceRay(reflect, glm::dvec3(1.0,1.0,1.0), depth - 1, dum);
+					// 	colorC += m.kr(i) * trans * temp;
+					// }
+					// colorC *= ((2 * PI) / SAMPLES_PER_PIXEL);
 				}
+				
 			}
 
 		}
-
-
 	} else {
 		// No intersection.  This ray travels to infinity, so we color
 		// it according to the background color, which in this (simple) case
@@ -416,7 +559,8 @@ void RayTracer::traceImage(int w, int h)
 				} else if (traceUI->aaSwitch()) { 
 					tracePixelAA(i, j);
 				} else {
-					tracePixel(i, j);
+					tracePixelPath(i, j);
+					//tracePixel(i, j);
 				}
 			}
 			pixThreadsDone[threadId] = true;

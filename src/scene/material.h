@@ -243,6 +243,7 @@ public:
     void setIndex( const MaterialParameter& index )            { _index = index; }
 
 	// get booleans for reflection and refraction
+  bool Diff() const { return _diff; }
 	bool Refl() const { return _refl; }
 	bool Trans() const { return _trans; }
 	bool Recur() const { return _recur; }
@@ -257,6 +258,7 @@ private:
     MaterialParameter _kr;                    // reflective
     MaterialParameter _kt;                    // transmissive
 
+  bool _diff;
 	bool _refl;								  // specular reflector?
 	bool _trans;							  // specular transmitter?
 	bool _recur;							  // either one
@@ -270,6 +272,7 @@ private:
 		_refl = !_kr.isZero(); _trans = !_kt.isZero(); _recur = _refl || _trans;
 		_spec = _refl || !_ks.isZero();
 		_both = _refl && _trans;
+    _diff = !_kd.isZero();
 	}
 
 };
