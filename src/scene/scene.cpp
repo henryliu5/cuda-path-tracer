@@ -4,7 +4,8 @@
 #include "light.h"
 #include "kdTree.h"
 #include "../ui/TraceUI.h"
-#include <glm/gtx/extended_min_max.hpp>
+
+// #include <glm/gtx/extended_min_max.hpp>
 #include <iostream>
 #include <glm/gtx/io.hpp>
 
