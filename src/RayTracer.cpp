@@ -49,7 +49,8 @@ glm::dvec3 RayTracer::trace(double x, double y)
 	ray r(glm::dvec3(0,0,0), glm::dvec3(0,0,0), glm::dvec3(1,1,1), ray::VISIBILITY);
 	scene->getCamera().rayThrough(x,y,r);
 	double dummy;
-	glm::dvec3 ret = pathTraceRay(r, glm::dvec3(1.0,1.0,1.0), traceUI->getDepth(), dummy);
+	// glm::dvec3 ret = pathTraceRay(r, glm::dvec3(1.0,1.0,1.0), traceUI->getDepth(), dummy);
+	glm::dvec3 ret = traceRay(r, glm::dvec3(1.0,1.0,1.0), traceUI->getDepth(), dummy);
 	// clamp color
 	ret = glm::clamp(ret, 0.0, 1.0);
 	return ret;
@@ -608,8 +609,8 @@ void RayTracer::traceImage(int w, int h)
 				} else if (traceUI->aaSwitch()) { 
 					tracePixelAA(i, j);
 				} else {
-					tracePixelPath(i, j);
-					//tracePixel(i, j);
+					// tracePixelPath(i, j);
+					tracePixel(i, j);
 				}
 			}
 			pixThreadsDone[threadId] = true;
