@@ -35,12 +35,12 @@ public:
 
 	glm::dvec3 sampleHemisphere(glm::dvec3& curNorm);
 
-	glm::dvec3 tracePixelPath(int i, int j, int samples);
+	// glm::dvec3 tracePixelPath(int i, int j, int samples);
 	glm::dvec3 tracePixelAA(int i, int j);
 	glm::dvec3 tracePixel(int i, int j);
 	glm::dvec3 traceRay(ray& r, const glm::dvec3& thresh, int depth,
 	                    double& length);
-	glm::dvec3 pathTraceRay(ray& r, int depth);
+	// glm::dvec3 pathTraceRay(ray& r, int depth);
 
 	glm::dvec3 getPixel(int i, int j);
 	void setPixel(int i, int j, glm::dvec3 color);
@@ -48,11 +48,18 @@ public:
 	double aspectRatio();
 
 	void traceImage(int w, int h);
+	void traceImageCPU(int w, int h);
+
+    /*************
+     * GPU stuff *
+     *************/
+	void traceImageGPU(int w, int h);
+
 	int aaImage();
 	bool checkRender();
 	void waitRender();
 
-	void traceSetup(int w, int h);
+	void traceSetup(int w, int h, bool useGPU);
 
 	bool loadScene(const char* fn);
 	bool sceneLoaded() { return scene != 0; }
@@ -84,6 +91,7 @@ private:
 	std::thread* pixThreads;
 	bool* pixThreadsDone;
 	bool m_bBufferReady;
+	bool useGPU;
 
 };
 

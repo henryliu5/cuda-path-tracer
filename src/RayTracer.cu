@@ -22,12 +22,117 @@
 #include <pthread.h>
 #include <chrono>
 
+#include "cuda_util.h"
+
 #define PI 3.14159265358979311600
-#define SAMPLES_PER_PIXEL 2048
-// #define PRR 0.7
+#define SAMPLES_PER_PIXEL 32
 
 using namespace std;
 extern TraceUI* traceUI;
+
+// Do recursive ray tracing!  You'll want to insert a lot of code here
+// (or places called from here) to handle reflection, refraction, etc etc.
+__host__
+glm::dvec3 pathTraceRay(ray& r, int depth, BVHTree* bvhTree) {
+	static uniform_real_distribution<double> unif(0, 1);
+	static default_random_engine re;
+	isect i;
+	glm::dvec3 myContrib;
+	glm::dvec3 colorC;
+	#if VERBOSE
+		std::cerr << "== current depth: " << depth << std::endl;
+	#endif
+
+	if(bvhTree->traverse(r, i)) {
+		const Material& m = i.getMaterial();
+		myContrib += m.ke(i);		
+		colorC += m.ke(i);
+		// colorC += m.shade(scene.get(), r, i);	
+		if (depth > 0) {
+			glm::dvec3 normal = glm::normalize(i.getN());
+			// glm::dvec3 rand_dir = glm::normalize(sampleHemisphere(normal));
+			// double p = 1 / (2 * PI); 
+			// double theta = glm::dot(ray2.getDirection(), normal); 
+
+			// Cosine weighted sample
+			double r1 = 2 * PI * unif(re);
+			double r2 = unif(re);
+			double r2s = sqrt(r2);
+
+			auto w = normal;
+			auto u = glm::normalize(glm::cross((abs(w.x) > .1 ? glm::dvec3(0, 1, 0) : glm::dvec3(1, 0, 0)), w));
+			auto v = glm::cross(w,u);
+			auto rand_dir = glm::normalize(u*cos(r1)*r2s + v*sin(r1)*r2s + w*sqrt(1 - r2));
+			double p = 1 / PI;
+			double theta = 1;
+
+			// // cout << rand_dir << " " << glm::dot(normal, rand_dir) << endl;
+
+            ray ray2(r.at(i) + normal * 1e-12, rand_dir, r.getAtten(), ray::REFLECTION);
+
+			
+			glm::dvec3 brdf = m.kd(i) / PI;
+
+			glm::dvec3 res = pathTraceRay(ray2, depth - 1, bvhTree);
+			colorC += (brdf * res * theta / p);
+		} 
+	} else {
+			// No intersection.  This ray travels to infinity, so we color
+			// it according to the background color, which in this (simple) case
+			// is just black.
+			colorC = glm::dvec3(0.0, 0.0, 0.0);
+			if(traceUI->cubeMap()){
+				CubeMap* cubeMap = traceUI->getCubeMap();
+				glm::dvec3 kd = cubeMap->getColor(r);
+				colorC += kd;
+			}
+	}
+	// if(depth >= 1){
+	// 	return colorC - myContrib;
+	// }
+	return colorC;
+}
+
+
+__host__
+glm::dvec3 tracePixelPath(unsigned char* buffer, Scene* scene, BVHTree* bvhTree, int pixelI, int pixelJ, int bufferWidth, int bufferHeight, int maxDepth, int samplesPerPixel = SAMPLES_PER_PIXEL) {
+	glm::dvec3 colSum(0, 0, 0);
+
+	static uniform_real_distribution<double> unif(-0.5, 0.5);
+	static default_random_engine re;
+
+	// update pixel buffer w color
+	for(int sample = 0; sample < samplesPerPixel; ++sample) {
+		// Shoot ray through camera
+		ray r(glm::dvec3(0,0,0), glm::dvec3(0,0,0), glm::dvec3(1,1,1), ray::VISIBILITY);
+
+		double iShift = unif(re);
+		double jShift = unif(re);
+		double newI = pixelI + iShift;
+		double newJ = pixelJ + jShift;
+		if(newI < 0) newI = 0; if(newI >= bufferWidth) newI = bufferWidth - 1;
+		if(newJ < 0) newJ = 0; if(newJ >= bufferHeight) newJ = bufferHeight - 1;
+		double x = newI/double(bufferWidth);
+		double y = newJ/double(bufferHeight);
+		// double x = double(pixelI)/double(bufferWidth);
+		// double y = double(pixelJ)/double(bufferHeight);
+
+		scene->getCamera().rayThrough(x,y,r);
+		auto color = pathTraceRay(r, maxDepth, bvhTree);
+		// color = glm::clamp(color, 0.0, 1.0);
+		colSum += color;
+	}
+
+	// colSum = glm::clamp(colSum, 0.0, (double) samplesPerPixel);
+	colSum = glm::dvec3(colSum.x / samplesPerPixel, colSum.y / samplesPerPixel, colSum.z / samplesPerPixel);
+	colSum = glm::clamp(colSum, 0.0, 1.0);
+
+	unsigned char *pixel = buffer + ( pixelI + pixelJ * bufferWidth ) * 3;
+	pixel[0] = (int)( 255.0 * colSum.x);
+	pixel[1] = (int)( 255.0 * colSum.y);
+	pixel[2] = (int)( 255.0 * colSum.z);
+	return colSum;
+}
 
 // Use this variable to decide if you want to print out
 // debugging messages.  Gets set in the "trace single ray" mode
@@ -116,52 +221,6 @@ glm::dvec3 RayTracer::tracePixelAA(int i, int j){
     pixel[2] = (int)(255.0 * colSum.z / (subpixels * subpixels));
 
     return colSum;
-}
-
-glm::dvec3 RayTracer::tracePixelPath(int pixelI, int pixelJ, int samplesPerPixel = SAMPLES_PER_PIXEL) {
-	intersectCallCount = 0;
-	trimeshCount = 0;
-	
-	glm::dvec3 colSum(0, 0, 0);
-
-	if( ! sceneLoaded() ) return colSum;
-
-	static uniform_real_distribution<double> unif(-0.5, 0.5);
-	static default_random_engine re;
-
-	// update pixel buffer w color
-	for(int sample = 0; sample < samplesPerPixel; ++sample) {
-		if (!sceneLoaded())
-		        return colSum;
-		// Shoot ray through camera
-		ray r(glm::dvec3(0,0,0), glm::dvec3(0,0,0), glm::dvec3(1,1,1), ray::VISIBILITY);
-
-		double iShift = unif(re);
-		double jShift = unif(re);
-		double newI = pixelI + iShift;
-		double newJ = pixelJ + jShift;
-		if(newI < 0) newI = 0; if(newI >= buffer_width) newI = buffer_width - 1;
-		if(newJ < 0) newJ = 0; if(newJ >= buffer_height) newJ = buffer_height - 1;
-		double x = newI/double(buffer_width);
-		double y = newJ/double(buffer_height);
-		// double x = double(pixelI)/double(buffer_width);
-		// double y = double(pixelJ)/double(buffer_height);
-
-		scene->getCamera().rayThrough(x,y,r);
-		auto color = pathTraceRay(r, traceUI->getDepth());
-		// color = glm::clamp(color, 0.0, 1.0);
-		colSum += color;
-	}
-
-	// colSum = glm::clamp(colSum, 0.0, (double) samplesPerPixel);
-	colSum = glm::dvec3(colSum.x / samplesPerPixel, colSum.y / samplesPerPixel, colSum.z / samplesPerPixel);
-	colSum = glm::clamp(colSum, 0.0, 1.0);
-
-	unsigned char *pixel = buffer.data() + ( pixelI + pixelJ * buffer_width ) * 3;
-	pixel[0] = (int)( 255.0 * colSum.x);
-	pixel[1] = (int)( 255.0 * colSum.y);
-	pixel[2] = (int)( 255.0 * colSum.z);
-	return colSum;
 }
 
 //getting random vector in hemisphere: https://www.scratchapixel.com/lessons/3d-basic-rendering/global-illumination-path-tracing/global-illumination-path-tracing-practical-implementation
@@ -396,71 +455,6 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 	return colorC;
 }
 
-// Do recursive ray tracing!  You'll want to insert a lot of code here
-// (or places called from here) to handle reflection, refraction, etc etc.
-glm::dvec3 RayTracer::pathTraceRay(ray& r, int depth) {
-	static uniform_real_distribution<double> unif(0, 1);
-	static default_random_engine re;
-	isect i;
-	glm::dvec3 myContrib;
-	glm::dvec3 colorC;
-	#if VERBOSE
-		std::cerr << "== current depth: " << depth << std::endl;
-	#endif
-
-	if(bvhTree.traverse(r, i)) {
-		const Material& m = i.getMaterial();
-		myContrib += m.ke(i);		
-		colorC += m.ke(i);
-		// colorC += m.shade(scene.get(), r, i);	
-		if (depth > 0) {
-			glm::dvec3 normal = glm::normalize(i.getN());
-			// glm::dvec3 rand_dir = glm::normalize(sampleHemisphere(normal));
-			// double p = 1 / (2 * PI); 
-			// double theta = glm::dot(ray2.getDirection(), normal); 
-
-			// Cosine weighted sample
-			double r1 = 2 * PI * unif(re);
-			double r2 = unif(re);
-			double r2s = sqrt(r2);
-
-			auto w = normal;
-			auto u = glm::normalize(glm::cross((abs(w.x) > .1 ? glm::dvec3(0, 1, 0) : glm::dvec3(1, 0, 0)), w));
-			auto v = glm::cross(w,u);
-			auto rand_dir = glm::normalize(u*cos(r1)*r2s + v*sin(r1)*r2s + w*sqrt(1 - r2));
-			double p = 1 / PI;
-			double theta = 1;
-
-			// // cout << rand_dir << " " << glm::dot(normal, rand_dir) << endl;
-
-            ray ray2(r.at(i) + normal * 1e-12, rand_dir, r.getAtten(), ray::REFLECTION);
-
-			
-			glm::dvec3 brdf = m.kd(i) / PI;
-
-			glm::dvec3 res = pathTraceRay(ray2, depth - 1);
-			colorC += (brdf * res * theta / p);
-		} 
-	} else {
-			// No intersection.  This ray travels to infinity, so we color
-			// it according to the background color, which in this (simple) case
-			// is just black.
-			colorC = glm::dvec3(0.0, 0.0, 0.0);
-			if(traceUI->cubeMap()){
-				CubeMap* cubeMap = traceUI->getCubeMap();
-				glm::dvec3 kd = cubeMap->getColor(r);
-				colorC += kd;
-			}
-	}
-	#if VERBOSE
-		std::cerr << "== depth: " << depth+1 << " done, returning: " << colorC << std::endl;
-	#endif
-	// if(depth >= 1){
-	// 	return colorC - myContrib;
-	// }
-	return colorC;
-}
-
 RayTracer::RayTracer()
 	: scene(nullptr), buffer(0), thresh(0), buffer_width(0), buffer_height(0), m_bBufferReady(false)
 {
@@ -526,7 +520,7 @@ bool RayTracer::loadScene(const char* fn)
 	return true;
 }
 
-void RayTracer::traceSetup(int w, int h)
+void RayTracer::traceSetup(int w, int h, bool useGPU)
 {
 	size_t newBufferSize = w * h * 3;
 	if (newBufferSize != buffer.size()) {
@@ -567,6 +561,10 @@ void RayTracer::traceSetup(int w, int h)
 		pixThreadsDone[i] = false;
 	}
     // cout << "threads: " << threads << "\n";
+	this->useGPU = useGPU;
+	if(this->useGPU){
+		cout << "GPU Enabled\n";
+	}
 }
 
 /*
@@ -579,11 +577,8 @@ void RayTracer::traceSetup(int w, int h)
  *		h:	height of the image buffer
  *
  */
-void RayTracer::traceImage(int w, int h)
+void RayTracer::traceImageCPU(int w, int h)
 {
-	// Always call traceSetup before rendering anything.
-	traceSetup(w,h);
-
 	// Enable/disable depth of field with below config
 	const bool USE_DOF = false;
     // Good config for easy3: fd = 8.5, a = 0.2
@@ -593,15 +588,6 @@ void RayTracer::traceImage(int w, int h)
     const double APERTURE = 0.2;
     // Number of samples per pixel
     const unsigned int SAMPLES = 128;
-
-    // YOUR CODE HERE
-    // FIXME: Start one or more threads for ray tracing
-    //
-    // TIPS: Ideally, the traceImage should be executed asynchronously,
-    //       i.e. returns IMMEDIATELY after working threads are launched.
-    //
-    //       An asynchronous traceImage lets the GUI update your results
-    //       while rendering.
 
 	int debugInterval = 16;
 	static uniform_real_distribution<double> unif(-APERTURE, APERTURE);
@@ -615,38 +601,58 @@ void RayTracer::traceImage(int w, int h)
 			
 			int count = 0;
 			// Compute pixels for this thread
-			// for (int index1d = threadId; index1d < w * h; index1d += threads) {
-			// int n = w*h;
 			for (int index1d = threadId; index1d < w * h; index1d += threads) {
 				int i = index1d / h;
 				int j = index1d % h;
-// 				if(threadId == 0){
-// 					if(count % (512*64) == 0){
-// 						cout << "count: " << count << endl;
-// std::cout << "Avg. elapsed(ms) = " << chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now() - start).count() / (double)count << "\n";
-// 						cout << "thread 0 finished col: " << i << endl;
-// 						start = chrono::steady_clock::now();
-// 						count = 0;
 
-// 						cout << "total traverals: " << bvhTree.traverseCount << endl;
-// 						cout << "visit %: " << bvhTree.percentSum / bvhTree.traversals << endl;
-
-// 						bvhTree.traversals = 0;
-// 						bvhTree.percentSum = 0;
-// 					}
-					
-// 				}
 				if (USE_DOF) {
 					tracePixelDOF(i, j, FOCAL_DISTANCE, SAMPLES, unif, re);
 				} else if (traceUI->aaSwitch()) { 
 					tracePixelAA(i, j);
 				} else {
-					tracePixelPath(i, j);
+					tracePixelPath(buffer.data(), scene.get(), &bvhTree, i, j, w, h, traceUI->getDepth());
 					// tracePixel(i, j);
 				}
 			}
 			pixThreadsDone[threadId] = true;
 		});
+	}
+}
+
+__global__
+void traceImageKernel(unsigned char* buf, int w, int h){
+	int n = w * h;
+	int index = blockIdx.x * blockDim.x + threadIdx.x;
+	int stride = blockDim.x * gridDim.x;
+
+	for (int i = index; i < n; i += stride) {
+		int pixel = i * 3;
+		buf[pixel] = 128;
+		buf[pixel + 1] = 0;
+		buf[pixel + 2] = 128;
+	}
+}
+
+void RayTracer::traceImageGPU(int w, int h){
+	unsigned char* buf = copy_host_to_device(buffer.data(), buffer.size() * sizeof(unsigned char));
+
+	int N = w * h * 3;
+	int blockSize = 256;
+	int numBlocks = (N + blockSize - 1) / blockSize;
+
+	traceImageKernel<<<numBlocks, blockSize>>>(buf, w, h);
+	cudaDeviceSynchronize();
+	cudaMemcpy(buffer.data(), buf, buffer.size() * sizeof(unsigned char), cudaMemcpyDeviceToHost);
+	cudaDeviceSynchronize();
+}
+
+void RayTracer::traceImage(int w, int h){
+	// Always call traceSetup before rendering anything.
+	traceSetup(w,h, useGPU);
+	if(useGPU){
+		traceImageGPU(w, h);
+	} else {
+		traceImageCPU(w, h);
 	}
 }
 
@@ -656,17 +662,7 @@ double RayTracer::fRand(double fMin, double fMax)
     return fMin + f * (fMax - fMin);
 }
 
-int RayTracer::aaImage()
-{
-    // YOUR CODE HERE
-    // FIXME: Implement Anti-aliasing here
-    //
-    // TIP: samples and aaThresh have been synchronized with TraceUI by
-    //      RayTracer::traceSetup() function
-
-	// Done in tracePixelAA() above
-	return 0;
-}
+int RayTracer::aaImage(){ return 0; }
 
 bool RayTracer::checkRender()
 {

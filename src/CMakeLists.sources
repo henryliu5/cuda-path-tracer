@@ -1,1 +1,3 @@
 ./main.cu
+./RayTracer.cu
+./path_tracer.cu

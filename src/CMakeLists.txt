@@ -57,16 +57,6 @@ message(STATUS "ray added, files ${src} ${custom_src}")
 
 target_link_libraries(ray ${OPENGL_gl_LIBRARY})
 
-
-# # Manual FLTK
-# include_directories(${CMAKE_SOURCE_DIR}/fltk-1.3.8/)
-# link_directories(${CMAKE_SOURCE_DIR}/fltk-1.3.8/lib)
-# target_link_libraries(ray ${CMAKE_SOURCE_DIR}/fltk-1.3.8/lib/libfltk.a)
-# target_link_libraries(ray ${CMAKE_SOURCE_DIR}/fltk-1.3.8/lib/libfltk_gl.a)
-# target_link_libraries(ray ${CMAKE_SOURCE_DIR}/fltk-1.3.8/lib/libfltk_images.a)
-# target_link_libraries(ray ${CMAKE_SOURCE_DIR}/fltk-1.3.8/lib/libfltk_forms.a)
-# target_link_libraries(ray X11 dl Xext Xfixes Xrender Xcursor Xinerama)
-
 SET(FLTK_SKIP_FLUID TRUE)
 FIND_PACKAGE(FLTK REQUIRED)
 SET_PROPERTY(TARGET ray APPEND PROPERTY INCLUDE_DIRECTORIES ${FLTK_INCLUDE_DIRS})

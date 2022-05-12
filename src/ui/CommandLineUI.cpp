@@ -25,8 +25,9 @@ CommandLineUI::CommandLineUI(int argc, char** argv) : TraceUI()
 	int i;
 	progName = argv[0];
 	const char* jsonfile = nullptr;
+	useGPU = false;
 	string cubemap_file;
-	while ((i = getopt(argc, argv, "tr:w:hj:c:")) != EOF) {
+	while ((i = getopt(argc, argv, "tr:w:hj:c:g")) != EOF) {
 		switch (i) {
 			case 'r':
 				m_nDepth = atoi(optarg);
@@ -43,6 +44,10 @@ CommandLineUI::CommandLineUI(int argc, char** argv) : TraceUI()
 			case 'h':
 				usage();
 				exit(1);
+			case 'g':
+				useGPU = true;
+				break;
+
 			default:
 				// Oops; unknown argument
 				std::cerr << "Invalid argument: '" << i << "'."
@@ -76,7 +81,7 @@ int CommandLineUI::run()
 		int width = m_nSize;
 		int height = (int)(width / raytracer->aspectRatio() + 0.5);
 
-		raytracer->traceSetup(width, height);
+		raytracer->traceSetup(width, height, useGPU);
 
 		clock_t start, end;
 		start = clock();

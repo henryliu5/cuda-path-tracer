@@ -20,6 +20,7 @@ public:
 private:
 	void		usage();
 
+	bool useGPU;
 	char*	rayName;
 	char*	imgName;
 	char*	progName;
