@@ -23,7 +23,7 @@
 #include <chrono>
 
 #define PI 3.14159265358979311600
-#define SAMPLES_PER_PIXEL 1
+#define SAMPLES_PER_PIXEL 128
 
 using namespace std;
 extern TraceUI* traceUI;
@@ -48,8 +48,9 @@ glm::dvec3 RayTracer::trace(double x, double y)
 
 	ray r(glm::dvec3(0,0,0), glm::dvec3(0,0,0), glm::dvec3(1,1,1), ray::VISIBILITY);
 	scene->getCamera().rayThrough(x,y,r);
+
+	// glm::dvec3 ret = pathTraceRay(r, glm::dvec3(1.0,1.0,1.0), traceUI->getDepth());
 	double dummy;
-	// glm::dvec3 ret = pathTraceRay(r, glm::dvec3(1.0,1.0,1.0), traceUI->getDepth(), dummy);
 	glm::dvec3 ret = traceRay(r, glm::dvec3(1.0,1.0,1.0), traceUI->getDepth(), dummy);
 	// clamp color
 	ret = glm::clamp(ret, 0.0, 1.0);
@@ -116,8 +117,7 @@ glm::dvec3 RayTracer::tracePixelAA(int i, int j){
     return colSum;
 }
 
-
-glm::dvec3 RayTracer::tracePixelPath(int i, int j, int samplesPerPixel = SAMPLES_PER_PIXEL) {
+glm::dvec3 RayTracer::tracePixelPath(int pixelI, int pixelJ, int samplesPerPixel = SAMPLES_PER_PIXEL) {
 	intersectCallCount = 0;
 	trimeshCount = 0;
 	
@@ -125,35 +125,48 @@ glm::dvec3 RayTracer::tracePixelPath(int i, int j, int samplesPerPixel = SAMPLES
 
 	if( ! sceneLoaded() ) return colSum;
 
-	double x = double(i)/double(buffer_width);
-	double y = double(j)/double(buffer_height);
+	static uniform_real_distribution<double> unif(-0.5, 0.5);
+	static default_random_engine re;
+
 	// update pixel buffer w color
-	for(int i = 0; i < samplesPerPixel; ++i) {
-		glm::dvec3 col(0,0,0);
-		
+	for(int sample = 0; sample < samplesPerPixel; ++sample) {
 		if (!sceneLoaded())
-                return colSum;
+		        return colSum;
+		// Shoot ray through camera
+		ray r(glm::dvec3(0,0,0), glm::dvec3(0,0,0), glm::dvec3(1,1,1), ray::VISIBILITY);
 
-		col = trace(x, y);
+		// double iShift = unif(re);
+		// double jShift = unif(re);
+		// double newI = pixelI + iShift;
+		// double newJ = pixelJ + jShift;
+		// if(newI < 0) newI = 0; if(newI >= buffer_width) newI = buffer_width - 1;
+		// if(newJ < 0) newJ = 0; if(newJ >= buffer_height) newJ = buffer_height - 1;
+		// double x = newI/double(buffer_width);
+		// double y = newJ/double(buffer_height);
+		double x = double(pixelI)/double(buffer_width);
+		double y = double(pixelJ)/double(buffer_height);
 
-		colSum += col;
+		scene->getCamera().rayThrough(x,y,r);
+		auto color = pathTraceRay(r, traceUI->getDepth());
+		// color = glm::clamp(color, 0.0, 1.0);
+		colSum += color;
 	}
-	
-	unsigned char *pixel = buffer.data() + ( i + j * buffer_width ) * 3;
-	pixel[0] = (int)( 255.0 * (colSum.x / samplesPerPixel));
-	pixel[1] = (int)( 255.0 * (colSum.y / samplesPerPixel));
-	pixel[2] = (int)( 255.0 * (colSum.z / samplesPerPixel));
-	// cout << "intersectCallCount: " << intersectCallCount << endl;
-	// cout << "visitBoth: " << bvhTree.visitBoth << endl;
-	// cout << "traverseCount: " << bvhTree.traverseCount << endl;
-	// cout << "trimeshCount: " << trimeshCount << endl;
+
+	// colSum = glm::clamp(colSum, 0.0, (double) samplesPerPixel);
+	colSum = glm::dvec3(colSum.x / samplesPerPixel, colSum.y / samplesPerPixel, colSum.z / samplesPerPixel);
+	colSum = glm::clamp(colSum, 0.0, 1.0);
+
+	unsigned char *pixel = buffer.data() + ( pixelI + pixelJ * buffer_width ) * 3;
+	pixel[0] = (int)( 255.0 * colSum.x);
+	pixel[1] = (int)( 255.0 * colSum.y);
+	pixel[2] = (int)( 255.0 * colSum.z);
 	return colSum;
 }
 
 //getting random vector in hemisphere: https://www.scratchapixel.com/lessons/3d-basic-rendering/global-illumination-path-tracing/global-illumination-path-tracing-practical-implementation
 glm::dvec3 RayTracer::sampleHemisphere(glm::dvec3& curNorm) {
 	//Generate Sample Vector (Y component is "up")
-	static uniform_real_distribution<double> unif(0, 1);
+	uniform_real_distribution<double> unif(0, 1);
 	static default_random_engine re;
 
 	double p1 = unif(re);
@@ -163,7 +176,7 @@ glm::dvec3 RayTracer::sampleHemisphere(glm::dvec3& curNorm) {
 	double phi = 2 * PI * p2;
 	double x = sinTheta * cos(phi);
 	double z = sinTheta * sin(phi);
-	glm::dvec3 localSample(x, 1.0, z);
+	glm::dvec3 sample(x, p1, z);
 
 	//Get Transformation Matrix to transform sample to world (Y vector is "up" -> normal vector is "up")
 	glm::dvec3 normAxis1 = abs(curNorm.x) > abs(curNorm.y) ?  
@@ -173,9 +186,9 @@ glm::dvec3 RayTracer::sampleHemisphere(glm::dvec3& curNorm) {
 	glm::dvec3 normAxis2 = glm::cross(curNorm, normAxis1);
 
 	glm::dvec3 actualSample(
-		localSample.x * normAxis2.x + localSample.y * curNorm.x + localSample.z * normAxis1.x, 
-		localSample.x * normAxis2.y + localSample.y * curNorm.y + localSample.z * normAxis1.y, 
-		localSample.x * normAxis2.z + localSample.y * curNorm.z + localSample.z * normAxis1.z
+		sample.x * normAxis2.x + sample.y * curNorm.x + sample.z * normAxis1.x, 
+		sample.x * normAxis2.y + sample.y * curNorm.y + sample.z * normAxis1.y, 
+		sample.x * normAxis2.z + sample.y * curNorm.z + sample.z * normAxis1.z
 	);
 	
 	return actualSample;
@@ -351,7 +364,7 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 					// 	glm::dvec3 temp = traceRay(reflect, glm::dvec3(1.0,1.0,1.0), depth - 1, dum);
 					// 	colorC += m.kr(i) * trans * temp;
 					// }
-					// colorC *= ((2 * PI) / SAMPLES_PER_PIXEL);
+					// colorC *= ((2 * PI)/ SAMPLES_PER_PIXEL);
 				}
 				
 			}
@@ -384,50 +397,49 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 
 // Do recursive ray tracing!  You'll want to insert a lot of code here
 // (or places called from here) to handle reflection, refraction, etc etc.
-glm::dvec3 RayTracer::pathTraceRay(ray& r, const glm::dvec3& thresh, int depth, double& t) {
+glm::dvec3 RayTracer::pathTraceRay(ray& r, int depth) {
 	isect i;
+	glm::dvec3 myContrib;
 	glm::dvec3 colorC;
 	#if VERBOSE
 		std::cerr << "== current depth: " << depth << std::endl;
 	#endif
+
 	if(bvhTree.traverse(r, i)) {
-		
 		const Material& m = i.getMaterial();
+		myContrib += m.ke(i);		
 		colorC += m.ke(i);
+		// colorC += m.shade(scene.get(), r, i);	
 		if (depth > 0) {
-			glm::dvec3 normal = i.getN();
+			glm::dvec3 normal = glm::normalize(i.getN());
 			glm::dvec3 rand_dir = glm::normalize(sampleHemisphere(normal));
+			// cout << rand_dir << " " << glm::dot(normal, rand_dir) << endl;
             ray r2(r.at(i) + normal * 1e-12, rand_dir, r.getAtten(), ray::REFLECTION);
 
 			double p = 1 / (2 * PI); 
 			double theta = glm::dot(r2.getDirection(), normal); 
 			glm::dvec3 brdf = m.kd(i) / PI;
 
-			double dum;
-			colorC += (brdf * pathTraceRay(r2, thresh, depth - 1, dum) * theta);
+			glm::dvec3 res = pathTraceRay(r2, depth - 1);
+			colorC += (brdf * res * theta / p);
 		} 
 	} else {
 			// No intersection.  This ray travels to infinity, so we color
 			// it according to the background color, which in this (simple) case
 			// is just black.
-			//
-			// FIXME: Add CubeMap support here.
-			// TIPS: CubeMap object can be fetched from traceUI->getCubeMap();
-			//       Check traceUI->cubeMap() to see if cubeMap is loaded
-			//       and enabled.
 			colorC = glm::dvec3(0.0, 0.0, 0.0);
 			if(traceUI->cubeMap()){
 				CubeMap* cubeMap = traceUI->getCubeMap();
 				glm::dvec3 kd = cubeMap->getColor(r);
-				// YOUR CODE HERE
-				// FIXME: Implement Cube Map here
-
 				colorC += kd;
 			}
 	}
 	#if VERBOSE
 		std::cerr << "== depth: " << depth+1 << " done, returning: " << colorC << std::endl;
 	#endif
+	// if(depth >= 1){
+	// 	return colorC - myContrib;
+	// }
 	return colorC;
 }
 
@@ -577,6 +589,8 @@ void RayTracer::traceImage(int w, int h)
 	static uniform_real_distribution<double> unif(-APERTURE, APERTURE);
 	static default_random_engine re;
 
+	std::cout << "Current samples per pixel: " << SAMPLES_PER_PIXEL << endl;
+
 	for(int threadId = 0; threadId < threads; ++threadId){
 		pixThreads[threadId] = std::thread([=]() {
 			auto start = chrono::steady_clock::now();
@@ -609,8 +623,8 @@ void RayTracer::traceImage(int w, int h)
 				} else if (traceUI->aaSwitch()) { 
 					tracePixelAA(i, j);
 				} else {
-					// tracePixelPath(i, j);
-					tracePixel(i, j);
+					tracePixelPath(i, j);
+					// tracePixel(i, j);
 				}
 			}
 			pixThreadsDone[threadId] = true;

@@ -40,8 +40,7 @@ public:
 	glm::dvec3 tracePixel(int i, int j);
 	glm::dvec3 traceRay(ray& r, const glm::dvec3& thresh, int depth,
 	                    double& length);
-	glm::dvec3 pathTraceRay(ray& r, const glm::dvec3& thresh, int depth,
-						double& length);
+	glm::dvec3 pathTraceRay(ray& r, int depth);
 
 	glm::dvec3 getPixel(int i, int j);
 	void setPixel(int i, int j, glm::dvec3 color);
