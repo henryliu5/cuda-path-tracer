@@ -23,7 +23,7 @@
 #include <chrono>
 
 #define PI 3.14159265358979311600
-#define SAMPLES_PER_PIXEL 10240
+#define SAMPLES_PER_PIXEL 1
 
 using namespace std;
 extern TraceUI* traceUI;
@@ -49,7 +49,7 @@ glm::dvec3 RayTracer::trace(double x, double y)
 	ray r(glm::dvec3(0,0,0), glm::dvec3(0,0,0), glm::dvec3(1,1,1), ray::VISIBILITY);
 	scene->getCamera().rayThrough(x,y,r);
 	double dummy;
-	glm::dvec3 ret = traceRay(r, glm::dvec3(1.0,1.0,1.0), traceUI->getDepth(), dummy);
+	glm::dvec3 ret = pathTraceRay(r, glm::dvec3(1.0,1.0,1.0), traceUI->getDepth(), dummy);
 	// clamp color
 	ret = glm::clamp(ret, 0.0, 1.0);
 	return ret;
@@ -190,9 +190,9 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 {
 	isect i;
 	glm::dvec3 colorC;
-#if VERBOSE
-	std::cerr << "== current depth: " << depth << std::endl;
-#endif
+	#if VERBOSE
+		std::cerr << "== current depth: " << depth << std::endl;
+	#endif
 	// if(scene->intersect(r, i)) {
 	if(bvhTree.traverse(r, i)) {
 		// YOUR CODE HERE
@@ -210,14 +210,14 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 		// if(debugMode) cout << "tracing" << endl;
 		if(depth > 0){
 			//Path Tracing based on https://www.cs.rpi.edu/~cutler/classes/advancedgraphics/S10/final_projects/carr_hulcher.pdf
-			if(m.Diff()) {
-				glm::dvec3 normal = i.getN();
-				glm::dvec3 rand_dir = glm::normalize(sampleHemisphere(normal));
-				ray r2(r.at(i) + normal * 1e-12, rand_dir, r.getAtten(), ray::REFLECTION);
-				r2.currentIndex = r.currentIndex;
-				double dum;
-				colorC += traceRay(r2, glm::dvec3(1.0,1.0,1.0), depth - 1, dum) * glm::dot(rand_dir, normal);
-			}
+			// if(m.Diff()) {
+			// 	glm::dvec3 normal = i.getN();
+			// 	glm::dvec3 rand_dir = glm::normalize(sampleHemisphere(normal));
+			// 	ray r2(r.at(i) + normal * 1e-12, rand_dir, r.getAtten(), ray::REFLECTION);
+			// 	r2.currentIndex = r.currentIndex;
+			// 	double dum;
+			// 	colorC += traceRay(r2, glm::dvec3(1.0,1.0,1.0), depth - 1, dum) * glm::dot(rand_dir, normal);
+			// }
 			if(m.Refl()){
 				// if(debugMode) cout << "shooting reflection" << endl;
 				glm::dvec3 w_in = r.getDirection();
@@ -232,8 +232,8 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 
 				
 				glm::dvec3 rand_dir = glm::normalize(sampleHemisphere(normal));
-				// ray reflect(r.at(i) + normal * 1e-12, rand_dir, r.getAtten(), ray::REFLECTION);
-				ray reflect(r.at(i) + normal * 1e-12, w_ref, r.getAtten(), ray::REFLECTION);
+				ray reflect(r.at(i) + normal * 1e-12, rand_dir, r.getAtten(), ray::REFLECTION);
+				// ray reflect(r.at(i) + normal * 1e-12, w_ref, r.getAtten(), ray::REFLECTION);
 				// ray reflect(r.at(i) + normal * 1e-12, w_ref + (rand_dir*.1), r.getAtten(), ray::REFLECTION);
 				reflect.currentIndex = r.currentIndex;
 
@@ -247,7 +247,7 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 				// 	double p2 = distrib(engine);
 				// 	glm::dvec3 rand_dir = glm::normalize(sampleHemisphere(normal));
 				// 	// cout << "Sample " << curSample << " random vector: " << rand_dir.x << " " << rand_dir.y << " " << rand_dir.z << "\n";
-				// 	ray reflect(r.at(i) + normal * 1e-12, rand_dir, r.getAtten(), ray::REFLECTION);
+				// ray reflect(r.at(i) + normal * 1e-12, rand_dir, r.getAtten(), ray::REFLECTION);
 				// 	//ray reflect(r.at(i) + normal * 1e-12, w_ref, r.getAtten(), ray::REFLECTION);
 
 				// 	reflect.currentIndex = r.currentIndex;
@@ -287,8 +287,8 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 					glm::dvec3 refrac = (n*cosI - cosT) * normal - n*w_in;
 
 					glm::dvec3 rand_dir = glm::normalize(sampleHemisphere(normal));
-					// ray r2(r.at(i) - normal * 1e-12, rand_dir, r.getAtten(), ray::REFRACTION);
-					ray r2(r.at(i) - normal * 1e-12, glm::normalize(refrac), r.getAtten(), ray::REFRACTION);
+					ray r2(r.at(i) - normal * 1e-12, rand_dir, r.getAtten(), ray::REFRACTION);
+					// ray r2(r.at(i) - normal * 1e-12, glm::normalize(refrac), r.getAtten(), ray::REFRACTION);
 					// ray r2(r.at(i) - normal * 1e-12, glm::normalize(refrac) + (rand_dir*.1), r.getAtten(), ray::REFRACTION);
 					r2.currentIndex = n2;
 
@@ -375,9 +375,58 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 			colorC += kd;
 		}
 	}
-#if VERBOSE
-	std::cerr << "== depth: " << depth+1 << " done, returning: " << colorC << std::endl;
-#endif
+	#if VERBOSE
+		std::cerr << "== depth: " << depth+1 << " done, returning: " << colorC << std::endl;
+	#endif
+	return colorC;
+}
+
+// Do recursive ray tracing!  You'll want to insert a lot of code here
+// (or places called from here) to handle reflection, refraction, etc etc.
+glm::dvec3 RayTracer::pathTraceRay(ray& r, const glm::dvec3& thresh, int depth, double& t) {
+	isect i;
+	glm::dvec3 colorC;
+	#if VERBOSE
+		std::cerr << "== current depth: " << depth << std::endl;
+	#endif
+	if(bvhTree.traverse(r, i)) {
+		
+		const Material& m = i.getMaterial();
+		colorC += m.ke(i);
+		if (depth > 0) {
+			glm::dvec3 normal = i.getN();
+			glm::dvec3 rand_dir = glm::normalize(sampleHemisphere(normal));
+            ray r2(r.at(i) + normal * 1e-12, rand_dir, r.getAtten(), ray::REFLECTION);
+
+			double p = 1 / (2 * PI); 
+			double theta = glm::dot(r2.getDirection(), normal); 
+			glm::dvec3 brdf = m.kd(i) / PI;
+
+			double dum;
+			colorC += (brdf * pathTraceRay(r2, thresh, depth - 1, dum) * theta);
+		} 
+	} else {
+			// No intersection.  This ray travels to infinity, so we color
+			// it according to the background color, which in this (simple) case
+			// is just black.
+			//
+			// FIXME: Add CubeMap support here.
+			// TIPS: CubeMap object can be fetched from traceUI->getCubeMap();
+			//       Check traceUI->cubeMap() to see if cubeMap is loaded
+			//       and enabled.
+			colorC = glm::dvec3(0.0, 0.0, 0.0);
+			if(traceUI->cubeMap()){
+				CubeMap* cubeMap = traceUI->getCubeMap();
+				glm::dvec3 kd = cubeMap->getColor(r);
+				// YOUR CODE HERE
+				// FIXME: Implement Cube Map here
+
+				colorC += kd;
+			}
+	}
+	#if VERBOSE
+		std::cerr << "== depth: " << depth+1 << " done, returning: " << colorC << std::endl;
+	#endif
 	return colorC;
 }
 
