@@ -23,7 +23,8 @@
 #include <chrono>
 
 #define PI 3.14159265358979311600
-#define SAMPLES_PER_PIXEL 128
+#define SAMPLES_PER_PIXEL 2048
+// #define PRR 0.7
 
 using namespace std;
 extern TraceUI* traceUI;
@@ -135,16 +136,16 @@ glm::dvec3 RayTracer::tracePixelPath(int pixelI, int pixelJ, int samplesPerPixel
 		// Shoot ray through camera
 		ray r(glm::dvec3(0,0,0), glm::dvec3(0,0,0), glm::dvec3(1,1,1), ray::VISIBILITY);
 
-		// double iShift = unif(re);
-		// double jShift = unif(re);
-		// double newI = pixelI + iShift;
-		// double newJ = pixelJ + jShift;
-		// if(newI < 0) newI = 0; if(newI >= buffer_width) newI = buffer_width - 1;
-		// if(newJ < 0) newJ = 0; if(newJ >= buffer_height) newJ = buffer_height - 1;
-		// double x = newI/double(buffer_width);
-		// double y = newJ/double(buffer_height);
-		double x = double(pixelI)/double(buffer_width);
-		double y = double(pixelJ)/double(buffer_height);
+		double iShift = unif(re);
+		double jShift = unif(re);
+		double newI = pixelI + iShift;
+		double newJ = pixelJ + jShift;
+		if(newI < 0) newI = 0; if(newI >= buffer_width) newI = buffer_width - 1;
+		if(newJ < 0) newJ = 0; if(newJ >= buffer_height) newJ = buffer_height - 1;
+		double x = newI/double(buffer_width);
+		double y = newJ/double(buffer_height);
+		// double x = double(pixelI)/double(buffer_width);
+		// double y = double(pixelJ)/double(buffer_height);
 
 		scene->getCamera().rayThrough(x,y,r);
 		auto color = pathTraceRay(r, traceUI->getDepth());
@@ -166,7 +167,7 @@ glm::dvec3 RayTracer::tracePixelPath(int pixelI, int pixelJ, int samplesPerPixel
 //getting random vector in hemisphere: https://www.scratchapixel.com/lessons/3d-basic-rendering/global-illumination-path-tracing/global-illumination-path-tracing-practical-implementation
 glm::dvec3 RayTracer::sampleHemisphere(glm::dvec3& curNorm) {
 	//Generate Sample Vector (Y component is "up")
-	uniform_real_distribution<double> unif(0, 1);
+	static uniform_real_distribution<double> unif(0, 1);
 	static default_random_engine re;
 
 	double p1 = unif(re);
@@ -398,6 +399,8 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 // Do recursive ray tracing!  You'll want to insert a lot of code here
 // (or places called from here) to handle reflection, refraction, etc etc.
 glm::dvec3 RayTracer::pathTraceRay(ray& r, int depth) {
+	static uniform_real_distribution<double> unif(0, 1);
+	static default_random_engine re;
 	isect i;
 	glm::dvec3 myContrib;
 	glm::dvec3 colorC;
@@ -412,15 +415,30 @@ glm::dvec3 RayTracer::pathTraceRay(ray& r, int depth) {
 		// colorC += m.shade(scene.get(), r, i);	
 		if (depth > 0) {
 			glm::dvec3 normal = glm::normalize(i.getN());
-			glm::dvec3 rand_dir = glm::normalize(sampleHemisphere(normal));
-			// cout << rand_dir << " " << glm::dot(normal, rand_dir) << endl;
-            ray r2(r.at(i) + normal * 1e-12, rand_dir, r.getAtten(), ray::REFLECTION);
+			// glm::dvec3 rand_dir = glm::normalize(sampleHemisphere(normal));
+			// double p = 1 / (2 * PI); 
+			// double theta = glm::dot(ray2.getDirection(), normal); 
 
-			double p = 1 / (2 * PI); 
-			double theta = glm::dot(r2.getDirection(), normal); 
+			// Cosine weighted sample
+			double r1 = 2 * PI * unif(re);
+			double r2 = unif(re);
+			double r2s = sqrt(r2);
+
+			auto w = normal;
+			auto u = glm::normalize(glm::cross((abs(w.x) > .1 ? glm::dvec3(0, 1, 0) : glm::dvec3(1, 0, 0)), w));
+			auto v = glm::cross(w,u);
+			auto rand_dir = glm::normalize(u*cos(r1)*r2s + v*sin(r1)*r2s + w*sqrt(1 - r2));
+			double p = 1 / PI;
+			double theta = 1;
+
+			// // cout << rand_dir << " " << glm::dot(normal, rand_dir) << endl;
+
+            ray ray2(r.at(i) + normal * 1e-12, rand_dir, r.getAtten(), ray::REFLECTION);
+
+			
 			glm::dvec3 brdf = m.kd(i) / PI;
 
-			glm::dvec3 res = pathTraceRay(r2, depth - 1);
+			glm::dvec3 res = pathTraceRay(ray2, depth - 1);
 			colorC += (brdf * res * theta / p);
 		} 
 	} else {
