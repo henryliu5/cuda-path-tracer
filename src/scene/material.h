@@ -223,7 +223,7 @@ public:
     void setEmissive( const glm::dvec3& ke )     { _ke.setValue( ke ); }
     void setAmbient( const glm::dvec3& ka )      { _ka.setValue( ka ); }
     void setSpecular( const glm::dvec3& ks )     { _ks.setValue( ks ); setBools(); }
-    void setDiffuse( const glm::dvec3& kd )      { _kd.setValue( kd ); }
+    void setDiffuse( const glm::dvec3& kd )      { _kd.setValue( kd ); setBools(); }
     void setReflective( const glm::dvec3& kr )   { _kr.setValue( kr ); setBools(); }
     void setTransmissive( const glm::dvec3& kt ) { _kt.setValue( kt ); setBools(); }
     void setShininess( double shininess )   
@@ -234,8 +234,8 @@ public:
     // setting functions taking MaterialParameters
     void setEmissive( const MaterialParameter& ke )            { _ke = ke; }
     void setAmbient( const MaterialParameter& ka )             { _ka = ka; }
-    void setSpecular( const MaterialParameter& ks )            { _ks = ks; }
-    void setDiffuse( const MaterialParameter& kd )             { _kd = kd; }
+    void setSpecular( const MaterialParameter& ks )            { _ks = ks; setBools(); }
+    void setDiffuse( const MaterialParameter& kd )             { _kd = kd; setBools(); }
     void setReflective( const MaterialParameter& kr )          { _kr = kr; setBools(); }
     void setTransmissive( const MaterialParameter& kt )        { _kt = kt; setBools(); }
     void setShininess( const MaterialParameter& shininess )    

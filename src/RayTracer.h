@@ -32,7 +32,6 @@ public:
 	RayTracer();
 	~RayTracer();
 
-
 	glm::dvec3 sampleHemisphere(glm::dvec3& curNorm);
 
 	// glm::dvec3 tracePixelPath(int i, int j, int samples);
