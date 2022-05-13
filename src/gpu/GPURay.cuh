@@ -23,6 +23,7 @@ public:
 
 	glm::dvec3 p;
 	glm::dvec3 d;
+	double currentIndex;
 };
 
 }

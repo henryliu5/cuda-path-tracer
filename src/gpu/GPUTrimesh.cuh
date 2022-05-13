@@ -109,7 +109,9 @@ public:
         gpuErrchk(cudaMallocManaged(&materials, n_materials * sizeof(GPU::Material*)));
         for(int i = 0; i < n_materials; i++){
             ::Material* m = other.faces[i]->material.get();
-            materials[i] = new GPU::Material(m->_kd._value, m->_ke._value);
+            materials[i] = new GPU::Material(m->_kd._value, m->_ke._value, m->_ks._value, m->_kr._value, m->_kt._value, m->_shininess._value, m->_index._value);
+            cout << "Diffuse " <<  materials[i]->kd().x << " " << materials[i]->kd().y << " " << materials[i]->kd().z << " " << materials[i]->Diff() << endl;
+            cout << "Specular " << materials[i]->ks().x << " " << materials[i]->ks().y << " " << materials[i]->ks().z << " " << materials[i]->Spec() << endl;
         }       
 
         // Copy faces

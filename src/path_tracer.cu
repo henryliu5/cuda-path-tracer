@@ -11,47 +11,175 @@ extern TraceUI* traceUI;
 // (or places called from here) to handle reflection, refraction, etc etc.
 __host__
 glm::dvec3 pathTraceRay(ray& r, int depth, BVHTree* bvhTree) {
+	static uniform_real_distribution<double> unboundedUnif;
 	static uniform_real_distribution<double> unif(0, 1);
 	static default_random_engine re;
 	isect i;
 	glm::dvec3 colorC;
+	glm::dvec3 myContrib;
 	#if VERBOSE
 		std::cerr << "== current depth: " << depth << std::endl;
 	#endif
 
-	if(bvhTree->traverse(r, i)) {
-		const Material& m = i.getMaterial();	
-		colorC += m.ke(i);
-		// colorC += m.shade(scene.get(), r, i);	
-		if (depth > 0) {
-			glm::dvec3 normal = glm::normalize(i.getN());
-			// glm::dvec3 rand_dir = glm::normalize(sampleHemisphere(normal));
-			// double p = 1 / (2 * PI); 
-			// double theta = glm::dot(ray2.getDirection(), normal); 
-
-			// Cosine weighted sample
-			double r1 = 2 * PI * unif(re);
-			double r2 = unif(re);
-			double r2s = sqrt(r2);
-
-			auto w = normal;
-			auto u = glm::normalize(glm::cross((abs(w.x) > .1 ? glm::dvec3(0, 1, 0) : glm::dvec3(1, 0, 0)), w));
-			auto v = glm::cross(w,u);
-			auto rand_dir = glm::normalize(u*cos(r1)*r2s + v*sin(r1)*r2s + w*sqrt(1 - r2));
-			double p = 1 / PI;
-			double theta = 1;
-
-			// // cout << rand_dir << " " << glm::dot(normal, rand_dir) << endl;
-
-            ray ray2(r.at(i) + normal * 1e-12, rand_dir, r.getAtten(), ray::REFLECTION);
-
-			
-			glm::dvec3 brdf = m.kd(i) / PI;
-
-			glm::dvec3 res = pathTraceRay(ray2, depth - 1, bvhTree);
-			colorC += (brdf * res * theta / p);
-		} 
+	double coeffRR = 1.0;
+	if(traceUI->getDepth() - depth >= 3) {
+		double probRR = 0.30;
+		double sampleRR = unif(re);
+		if (sampleRR >= probRR) {
+			return colorC;
+		}
+		coeffRR = 1 / probRR;
 	}
+
+	if(bvhTree->traverse(r, i)) {
+		// cout << "Emissive" << endl;
+		const Material& m = i.getMaterial();
+		myContrib += (m.ke(i) * coeffRR);		
+		colorC += (m.ke(i) * coeffRR);
+		// colorC += m.shade(scene.get(), r, i);	
+		// if (depth > 0) {
+			// cout << "Kd of Material at i is : " << m.kd(i).x << " " << m.kd(i).y << " " << m.kd(i).z << " " << m.Diff() << " \n" << endl;
+				if (m.Diff()) {
+					//DIFFUSE BRDF
+					glm::dvec3 normal = glm::normalize(i.getN());
+
+					// Cosine weighted sample
+					double r1 = 2 * PI * unif(re);
+					double r2 = unif(re);
+					double r2s = sqrt(r2);
+
+					auto w = normal;
+					auto u = glm::normalize(glm::cross((abs(w.x) > .1 ? glm::dvec3(0, 1, 0) : glm::dvec3(1, 0, 0)), w));
+					auto v = glm::cross(w,u);
+					auto rand_dir = glm::normalize(u*cos(r1)*r2s + v*sin(r1)*r2s + w*sqrt(1 - r2));
+					double p = 1 / PI;
+					double theta = 1;
+
+					ray ray2(r.at(i) + normal * 1e-12, rand_dir, r.getAtten(), ray::REFLECTION);
+
+					
+					glm::dvec3 brdf = m.kd(i) / PI;
+
+					glm::dvec3 res = pathTraceRay(ray2, depth - 1, bvhTree);
+					colorC += ((brdf * res * theta / p) * coeffRR);
+				}
+				if (m.Spec()) {
+					// cout << "Specular" << endl;
+					//SPECULAR BRDF (assuming glossy surface with no roughness)
+					glm::dvec3 w_in = r.getDirection();
+					glm::dvec3 normal = i.getN();
+					if(r.currentIndex != 1.0){
+						normal *= -1.0;
+					}
+					glm::dvec3 w_normal = glm::dot(w_in, normal) * normal;
+					glm::dvec3 w_tan = w_in - w_normal;
+					glm::dvec3 w_ref = -w_normal + w_tan;
+					w_ref = glm::normalize(w_ref);
+
+					ray reflect(r.at(i) + normal * 1e-12, w_ref, r.getAtten(), ray::REFLECTION);
+					// ray reflect(r.at(i) + normal * 1e-12, w_ref + (rand_dir*.1), r.getAtten(), ray::REFLECTION);
+					reflect.currentIndex = r.currentIndex;
+
+					glm::dvec3 temp = pathTraceRay(reflect, depth - 1, bvhTree);
+					colorC += ((m.ks(i) * temp) * coeffRR);
+
+				}
+				if (m.Trans()) {
+					// cout << "Transmissive" << endl;
+					glm::dvec3 w_in = r.getDirection();
+					glm::dvec3 normal = i.getN();
+
+					double n1;
+					double n2;
+					glm::dvec3 trans = {1,1,1};
+					//Based on entering/exiting a material, set n1, n2, and trans
+					if(r.currentIndex == 1.0){
+						n1 = r.currentIndex;
+						n2 = m.index(i);
+					} else{
+						n1 = m.index(i);
+						n2 = 1.0;
+						normal *= -1;
+						trans = glm::pow(m.kt(i), {i.getT(),i.getT(),i.getT()});
+					}
+
+					double r0 = (n1 - n2)/(n1 + n2);
+					r0 *= r0;
+
+					double n = n1/n2;
+
+					w_in = -glm::normalize(w_in);
+					
+					double cosI = glm::dot(normal, w_in); //cosine of theta_1 (incident angle)
+
+					double cosR = 1 - n*n * (1-cosI*cosI); //cosine of theta_2 (refraction angle)
+					if(cosR >= 0){
+						//Potentially Refract/Reflect
+						double reflCoeff = r0 + (1 - r0)*pow((1 - cosI), 5.0); //Schlick's Approximation of Fresnel's Constant
+
+						double sampleFresnel = unboundedUnif(re);
+
+						if (sampleFresnel > reflCoeff) {
+							//refraction
+							double cosT = glm::sqrt(cosR);
+							glm::dvec3 refrac = (n*cosI - cosT) * normal - n*w_in; //direction of the refracted ray
+
+							ray r2(r.at(i) - normal * 1e-12, refrac, r.getAtten(), ray::REFRACTION);
+							r2.currentIndex = n2;
+
+							glm::dvec3 temp = pathTraceRay(r2, depth - 1, bvhTree);
+
+							colorC += ((trans * temp) * coeffRR);
+						} else {
+							//reflection
+							glm::dvec3 w_in = r.getDirection();
+							glm::dvec3 normal = i.getN();
+							if(r.currentIndex != 1.0){
+								normal *= -1.0;
+							}
+							glm::dvec3 w_normal = glm::dot(w_in, normal) * normal;
+							glm::dvec3 w_tan = w_in - w_normal;
+							glm::dvec3 w_ref = -w_normal + w_tan;
+							w_ref = glm::normalize(w_ref);
+
+							ray reflect(r.at(i) + normal * 1e-12, w_ref, r.getAtten(), ray::REFLECTION);
+							// ray reflect(r.at(i) + normal * 1e-12, w_ref + (rand_dir*.1), r.getAtten(), ray::REFLECTION);
+							reflect.currentIndex = r.currentIndex;
+
+							glm::dvec3 temp = pathTraceRay(reflect, depth - 1, bvhTree);
+							colorC += ((m.ks(i) * temp) * coeffRR);
+						}	
+					} else {
+						//Total Internal Reflection 
+						glm::dvec3 w_in = r.getDirection();
+						glm::dvec3 w_normal = glm::dot(w_in, normal) * normal;
+						glm::dvec3 w_tan = w_in - w_normal;
+						glm::dvec3 w_ref = -w_normal + w_tan;
+
+						w_ref = glm::normalize(w_ref);
+						ray reflect(r.at(i) + normal * 1e-12, w_ref, r.getAtten(), ray::REFLECTION);
+						reflect.currentIndex = r.currentIndex;
+
+						glm::dvec3 temp = pathTraceRay(reflect, depth - 1, bvhTree);
+						colorC += ((m.kr(i) * trans * temp) * coeffRR);
+					}
+				}	
+				
+		// } 
+	} else {
+			// No intersection.  This ray travels to infinity, so we color
+			// it according to the background color, which in this (simple) case
+			// is just black.
+			colorC = glm::dvec3(0.0, 0.0, 0.0);
+			if(traceUI->cubeMap()){
+				CubeMap* cubeMap = traceUI->getCubeMap();
+				glm::dvec3 kd = cubeMap->getColor(r);
+				colorC += kd;
+			}
+	}
+	// if(depth >= 1){
+	// 	return colorC - myContrib;
+	// }
 	return colorC;
 }
 
@@ -121,16 +249,113 @@ glm::dvec3 pathTraceRayGPU(GPU::Ray& r, GPU::Scene* scene, int depth, curandStat
 		if(scene->intersect(curRay, i)) {
 			GPU::Material* m = i.getMaterial();	
 			colorC += m->ke() * curAtten;
+			if(m->Diff()) {
+				glm::dvec3 normal = glm::normalize(i.getN());
+				glm::dvec3 rand_dir = sampleCosineWeightedHemisphere(normal, &local_rand_state);
 
-			glm::dvec3 normal = glm::normalize(i.getN());
-			glm::dvec3 rand_dir = sampleCosineWeightedHemisphere(normal, &local_rand_state);
+				constexpr double p = 1 / PI;
+				constexpr double theta = 1;
 
-			constexpr double p = 1 / PI;
-			constexpr double theta = 1;
+				curRay = GPU::Ray(curRay.at(i) + normal * 1e-12, rand_dir);
+				glm::dvec3 brdf = m->kd() / PI;
+				curAtten *= brdf * theta / p;
+			}
+			if(m->Spec()) {
+				glm::dvec3 w_in = glm::normalize(curRay.getDirection());
+				glm::dvec3 normal = glm::normalize(i.getN());
 
-            curRay = GPU::Ray(curRay.at(i) + normal * 1e-12, rand_dir);
-			glm::dvec3 brdf = m->kd() / PI;
-			curAtten *= brdf * theta / p;
+				if(curRay.currentIndex != 1.0){
+					normal *= -1.0;
+				}
+				glm::dvec3 w_normal = glm::dot(w_in, normal) * normal;
+				glm::dvec3 w_tan = w_in - w_normal;
+				glm::dvec3 w_ref = -w_normal + w_tan;
+				w_ref = glm::normalize(w_ref);
+
+				curRay = GPU::Ray(curRay.at(i) + normal * 1e-12, w_ref);
+
+				curAtten *= m->ks();
+			}
+			if(m->Trans()) {
+				glm::dvec3 w_in = r.getDirection();
+				glm::dvec3 normal = i.getN();
+
+				double n1;
+				double n2;
+				glm::dvec3 trans = {1,1,1};
+				//Based on entering/exiting a material, set n1, n2, and trans
+				if(curRay.currentIndex == 1.0){
+					n1 = curRay.currentIndex;
+					n2 = m.index(i);
+				} else{
+					n1 = m.index(i);
+					n2 = 1.0;
+					normal *= -1;
+					trans = glm::pow(m.kt(i), {i.getT(),i.getT(),i.getT()});
+				}
+
+				double r0 = (n1 - n2)/(n1 + n2);
+				r0 *= r0;
+
+				double n = n1/n2;
+
+				w_in = -glm::normalize(w_in);
+				
+				double cosI = glm::dot(normal, w_in); //cosine of theta_1 (incident angle)
+
+				double cosR = 1 - n*n * (1-cosI*cosI); //cosine of theta_2 (refraction angle)
+				// if(cosR >= 0){
+				// 	//Potentially Refract/Reflect
+				// 	double reflCoeff = r0 + (1 - r0)*pow((1 - cosI), 5.0); //Schlick's Approximation of Fresnel's Constant
+
+				// 	double sampleFresnel = unboundedUnif(re);
+
+				// 	if (sampleFresnel > reflCoeff) {
+				// 		//refraction
+				// 		double cosT = glm::sqrt(cosR);
+				// 		glm::dvec3 refrac = (n*cosI - cosT) * normal - n*w_in; //direction of the refracted ray
+
+				// 		curRay = GPU::(curRay.at(i) - normal * 1e-12, refrac);
+				// 		r2.currentIndex = n2;
+
+				// 		glm::dvec3 temp = pathTraceRay(r2, depth - 1);
+
+				// 		colorC += ((trans * temp));
+				// 	} else {
+				// 		//reflection
+				// 		glm::dvec3 w_in = r.getDirection();
+				// 		glm::dvec3 normal = i.getN();
+				// 		if(r.currentIndex != 1.0){
+				// 			normal *= -1.0;
+				// 		}
+				// 		glm::dvec3 w_normal = glm::dot(w_in, normal) * normal;
+				// 		glm::dvec3 w_tan = w_in - w_normal;
+				// 		glm::dvec3 w_ref = -w_normal + w_tan;
+				// 		w_ref = glm::normalize(w_ref);
+
+				// 		ray reflect(r.at(i) + normal * 1e-12, w_ref, r.getAtten(), ray::REFLECTION);
+				// 		// ray reflect(r.at(i) + normal * 1e-12, w_ref + (rand_dir*.1), r.getAtten(), ray::REFLECTION);
+				// 		reflect.currentIndex = r.currentIndex;
+
+				// 		glm::dvec3 temp = pathTraceRay(reflect, depth - 1, bvhTree);
+				// 		colorC += ((m.ks(i) * temp) * coeffRR);
+				// 	}	
+				// } else {
+				// 	//Total Internal Reflection 
+				// 	glm::dvec3 w_in = r.getDirection();
+				// 	glm::dvec3 w_normal = glm::dot(w_in, normal) * normal;
+				// 	glm::dvec3 w_tan = w_in - w_normal;
+				// 	glm::dvec3 w_ref = -w_normal + w_tan;
+
+				// 	w_ref = glm::normalize(w_ref);
+				// 	ray reflect(r.at(i) + normal * 1e-12, w_ref, r.getAtten(), ray::REFLECTION);
+				// 	reflect.currentIndex = r.currentIndex;
+
+				// 	glm::dvec3 temp = pathTraceRay(reflect, depth - 1, bvhTree);
+				// 	colorC += ((m.kr(i) * trans * temp) * coeffRR);
+				// }
+			}
+			
 			// curAtten *= m->kd(); // happens to work out like this given
 		} 
 	}
