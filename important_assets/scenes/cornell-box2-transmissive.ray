@@ -92,7 +92,7 @@ polymesh {
 		shininess=96.078431;
 		ambient=(1.0,1.0,1.0);
 		diffuse=(0.73,0.73,0.73);
-		specular=(0.1,0.1,0.1);
+		specular=(0.9,0.9,0.9);
 		emissive=(0.0,0.0,0.0);
 	};
 	points = (

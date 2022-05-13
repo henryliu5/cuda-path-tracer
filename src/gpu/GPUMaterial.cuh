@@ -12,9 +12,6 @@ public:
     CUDA_CALLABLE_MEMBER Material(glm::dvec3 kd, glm::dvec3 ke, glm::dvec3 ks, glm::dvec3 kr, glm::dvec3 kt, glm::dvec3 sh, glm::dvec3 in) : 
                                   _kd(kd), _ke(ke), _ks(ks), _kr(kr), _kt(kt), _shininess(sh), _index(in) { setBools(); }
     
-    // TODO handle specular stuff
-    CUDA_CALLABLE_MEMBER bool Recur() { return false; }
-
     CUDA_CALLABLE_MEMBER glm::dvec3 ke() { return _ke; }
     CUDA_CALLABLE_MEMBER glm::dvec3 kd() { return _kd; }
     CUDA_CALLABLE_MEMBER glm::dvec3 ks() { return _ks; }
