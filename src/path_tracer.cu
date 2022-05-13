@@ -96,6 +96,20 @@ glm::dvec3 tracePixelPath(unsigned char* buffer, Scene* scene, BVHTree* bvhTree,
 }
 
 
+// Generate random unit direction in cosine weighted hemisphere of normal
+__device__
+glm::dvec3 sampleCosineWeightedHemisphere(glm::dvec3& normal, curandState* local_rand_state){
+	// Cosine weighted sample
+	double r1 = 2 * PI * curand_uniform_double(local_rand_state);
+	double r2 = curand_uniform_double(local_rand_state);
+	double r2s = sqrt(r2);
+
+	auto& w = normal;
+	auto u = glm::normalize(glm::cross((abs(w.x) > .1 ? glm::dvec3(0, 1, 0) : glm::dvec3(1, 0, 0)), w));
+	auto v = glm::cross(w,u);
+	return glm::normalize(u*cos(r1)*r2s + v*sin(r1)*r2s + w*sqrt(1 - r2));
+}
+
 __device__
 glm::dvec3 pathTraceRayGPU(GPU::Ray& r, GPU::Scene* scene, int depth, curandState local_rand_state, bool print ) {
 	GPU::Isect i;
@@ -109,23 +123,15 @@ glm::dvec3 pathTraceRayGPU(GPU::Ray& r, GPU::Scene* scene, int depth, curandStat
 			colorC += m->ke() * curAtten;
 
 			glm::dvec3 normal = glm::normalize(i.getN());
+			glm::dvec3 rand_dir = sampleCosineWeightedHemisphere(normal, &local_rand_state);
 
-			// Cosine weighted sample
-			double r1 = 2 * PI * curand_uniform_double(&local_rand_state);
-			double r2 = curand_uniform_double(&local_rand_state);
-			double r2s = sqrt(r2);
+			constexpr double p = 1 / PI;
+			constexpr double theta = 1;
 
-			auto w = normal;
-			auto u = glm::normalize(glm::cross((abs(w.x) > .1 ? glm::dvec3(0, 1, 0) : glm::dvec3(1, 0, 0)), w));
-			auto v = glm::cross(w,u);
-			auto rand_dir = glm::normalize(u*cos(r1)*r2s + v*sin(r1)*r2s + w*sqrt(1 - r2));
-			double p = 1 / PI;
-			double theta = 1;
-
-            curRay = GPU::Ray(curRay.at(i) + normal * 1e-12, rand_dir);			
+            curRay = GPU::Ray(curRay.at(i) + normal * 1e-12, rand_dir);
 			glm::dvec3 brdf = m->kd() / PI;
-
 			curAtten *= brdf * theta / p;
+			// curAtten *= m->kd(); // happens to work out like this given
 		} 
 	}
 	return colorC;
@@ -176,29 +182,12 @@ void pathTraceKernel(unsigned char* buf, int w, int h, GPU::Scene* scene, int ma
 }
 
 __global__
-void traceImageKernel(unsigned char* buf, int w, int h, curandState *rand_state){
-	// int n = w * h;
-	// int index = blockIdx.x * blockDim.x + threadIdx.x;
-	// int stride = blockDim.x * gridDim.x;
-
-	// for (int i = index; i < n; i += stride) {
-	// 	glm::dvec3 colSum(0, 0, 0);
-	// 	int pixel = i * 3;
-
-
-	// 	buf[pixel] = 128;
-	// 	buf[pixel + 1] = 0;
-	// 	buf[pixel + 2] = 128;
-	// }
+void testKernel(unsigned char* buf, int w, int h, curandState *rand_state){
 	int i = threadIdx.x + blockIdx.x * blockDim.x;
     int j = threadIdx.y + blockIdx.y * blockDim.y;
     if((i >= w) || (j >= h)) return;
 
 	int pixel_index = j*w*3 + i*3;
-    // buf[pixel_index + 0] = float(i) / w;
-    // buf[pixel_index + 1] = float(j) / h;
-    // buf[pixel_index + 2] = 0.2;
-	// printf("%d\n", j);
 	buf[pixel_index + 0] = 128;
     buf[pixel_index + 1] = (float(j) / float(h)) * 255.0;
     buf[pixel_index + 2] = 128;
@@ -218,7 +207,6 @@ void RayTracer::traceImageGPU(int w, int h){
    	curandState *d_rand_state;
    	gpuErrchk(cudaMalloc((void **)&d_rand_state, N*sizeof(curandState)));
 
-	
 	// Launch kernel
 	int threadsX = 8;
     int threadsY = 8;
@@ -229,10 +217,10 @@ void RayTracer::traceImageGPU(int w, int h){
 	// int blockSize = 256;
 	// int numBlocks = (N + blockSize - 1) / blockSize;
 	// pathTraceKernel<<<numBlocks, blockSize>>>(buf, w, h, d_gpuScene, traceUI->getDepth(), SAMPLES_PER_PIXEL);
-	// traceImageKernel<<<numBlocks, blockSize>>>(buf, w, h, rand_state);
-	// traceImageKernel<<<blocks, threads>>>(buf, w, h, d_rand_state);
+	// testKernel<<<numBlocks, blockSize>>>(buf, w, h, rand_state);
+	// testKernel<<<blocks, threads>>>(buf, w, h, d_rand_state);
 	pathTraceKernel<<<blocks, threads>>>(buf, w, h, d_gpuScene, traceUI->getDepth(), SAMPLES_PER_PIXEL, d_rand_state);
-	cudaDeviceSynchronize();
+	gpuErrchk(cudaDeviceSynchronize());
 	// Copy buffer back
 	cudaMemcpy(buffer.data(), buf, buffer.size() * sizeof(unsigned char), cudaMemcpyDeviceToHost);
 	cudaDeviceSynchronize();
