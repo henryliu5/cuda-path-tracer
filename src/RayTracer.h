@@ -2,7 +2,7 @@
 #define __RAYTRACER_H__
 
 #define MAX_THREADS 32
-
+#define PI 3.14159265358979311600
 // The main ray tracer.
 
 #include <time.h>
@@ -59,7 +59,7 @@ public:
 	bool checkRender();
 	void waitRender();
 
-	void traceSetup(int w, int h, bool useGPU);
+	void traceSetup(int w, int h, bool useGPU, int samples);
 
 	bool loadScene(const char* fn);
 	bool sceneLoaded() { return scene != 0; }
@@ -92,7 +92,7 @@ private:
 	bool* pixThreadsDone;
 	bool m_bBufferReady;
 	bool useGPU;
-
+	int SAMPLES_PER_PIXEL;
 };
 
 #endif // __RAYTRACER_H__

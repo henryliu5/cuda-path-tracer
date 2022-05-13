@@ -22,118 +22,11 @@
 #include <pthread.h>
 #include <chrono>
 
-#include "cuda_util.h"
 
-#define PI 3.14159265358979311600
-#define SAMPLES_PER_PIXEL 32
 
 using namespace std;
 extern TraceUI* traceUI;
-
-// Do recursive ray tracing!  You'll want to insert a lot of code here
-// (or places called from here) to handle reflection, refraction, etc etc.
-__host__
-glm::dvec3 pathTraceRay(ray& r, int depth, BVHTree* bvhTree) {
-	static uniform_real_distribution<double> unif(0, 1);
-	static default_random_engine re;
-	isect i;
-	glm::dvec3 myContrib;
-	glm::dvec3 colorC;
-	#if VERBOSE
-		std::cerr << "== current depth: " << depth << std::endl;
-	#endif
-
-	if(bvhTree->traverse(r, i)) {
-		const Material& m = i.getMaterial();
-		myContrib += m.ke(i);		
-		colorC += m.ke(i);
-		// colorC += m.shade(scene.get(), r, i);	
-		if (depth > 0) {
-			glm::dvec3 normal = glm::normalize(i.getN());
-			// glm::dvec3 rand_dir = glm::normalize(sampleHemisphere(normal));
-			// double p = 1 / (2 * PI); 
-			// double theta = glm::dot(ray2.getDirection(), normal); 
-
-			// Cosine weighted sample
-			double r1 = 2 * PI * unif(re);
-			double r2 = unif(re);
-			double r2s = sqrt(r2);
-
-			auto w = normal;
-			auto u = glm::normalize(glm::cross((abs(w.x) > .1 ? glm::dvec3(0, 1, 0) : glm::dvec3(1, 0, 0)), w));
-			auto v = glm::cross(w,u);
-			auto rand_dir = glm::normalize(u*cos(r1)*r2s + v*sin(r1)*r2s + w*sqrt(1 - r2));
-			double p = 1 / PI;
-			double theta = 1;
-
-			// // cout << rand_dir << " " << glm::dot(normal, rand_dir) << endl;
-
-            ray ray2(r.at(i) + normal * 1e-12, rand_dir, r.getAtten(), ray::REFLECTION);
-
-			
-			glm::dvec3 brdf = m.kd(i) / PI;
-
-			glm::dvec3 res = pathTraceRay(ray2, depth - 1, bvhTree);
-			colorC += (brdf * res * theta / p);
-		} 
-	} else {
-			// No intersection.  This ray travels to infinity, so we color
-			// it according to the background color, which in this (simple) case
-			// is just black.
-			colorC = glm::dvec3(0.0, 0.0, 0.0);
-			if(traceUI->cubeMap()){
-				CubeMap* cubeMap = traceUI->getCubeMap();
-				glm::dvec3 kd = cubeMap->getColor(r);
-				colorC += kd;
-			}
-	}
-	// if(depth >= 1){
-	// 	return colorC - myContrib;
-	// }
-	return colorC;
-}
-
-
-__host__
-glm::dvec3 tracePixelPath(unsigned char* buffer, Scene* scene, BVHTree* bvhTree, int pixelI, int pixelJ, int bufferWidth, int bufferHeight, int maxDepth, int samplesPerPixel = SAMPLES_PER_PIXEL) {
-	glm::dvec3 colSum(0, 0, 0);
-
-	static uniform_real_distribution<double> unif(-0.5, 0.5);
-	static default_random_engine re;
-
-	// update pixel buffer w color
-	for(int sample = 0; sample < samplesPerPixel; ++sample) {
-		// Shoot ray through camera
-		ray r(glm::dvec3(0,0,0), glm::dvec3(0,0,0), glm::dvec3(1,1,1), ray::VISIBILITY);
-
-		double iShift = unif(re);
-		double jShift = unif(re);
-		double newI = pixelI + iShift;
-		double newJ = pixelJ + jShift;
-		if(newI < 0) newI = 0; if(newI >= bufferWidth) newI = bufferWidth - 1;
-		if(newJ < 0) newJ = 0; if(newJ >= bufferHeight) newJ = bufferHeight - 1;
-		double x = newI/double(bufferWidth);
-		double y = newJ/double(bufferHeight);
-		// double x = double(pixelI)/double(bufferWidth);
-		// double y = double(pixelJ)/double(bufferHeight);
-
-		scene->getCamera().rayThrough(x,y,r);
-		auto color = pathTraceRay(r, maxDepth, bvhTree);
-		// color = glm::clamp(color, 0.0, 1.0);
-		colSum += color;
-	}
-
-	// colSum = glm::clamp(colSum, 0.0, (double) samplesPerPixel);
-	colSum = glm::dvec3(colSum.x / samplesPerPixel, colSum.y / samplesPerPixel, colSum.z / samplesPerPixel);
-	colSum = glm::clamp(colSum, 0.0, 1.0);
-
-	unsigned char *pixel = buffer + ( pixelI + pixelJ * bufferWidth ) * 3;
-	pixel[0] = (int)( 255.0 * colSum.x);
-	pixel[1] = (int)( 255.0 * colSum.y);
-	pixel[2] = (int)( 255.0 * colSum.z);
-	return colSum;
-}
-
+glm::dvec3 tracePixelPath(unsigned char* buffer, Scene* scene, BVHTree* bvhTree, int pixelI, int pixelJ, int bufferWidth, int bufferHeight, int maxDepth, int samplesPerPixel);
 // Use this variable to decide if you want to print out
 // debugging messages.  Gets set in the "trace single ray" mode
 // in TraceGLWindow, for example.
@@ -520,7 +413,7 @@ bool RayTracer::loadScene(const char* fn)
 	return true;
 }
 
-void RayTracer::traceSetup(int w, int h, bool useGPU)
+void RayTracer::traceSetup(int w, int h, bool useGPU, int pathTracingSamples)
 {
 	size_t newBufferSize = w * h * 3;
 	if (newBufferSize != buffer.size()) {
@@ -565,6 +458,8 @@ void RayTracer::traceSetup(int w, int h, bool useGPU)
 	if(this->useGPU){
 		cout << "GPU Enabled\n";
 	}
+	SAMPLES_PER_PIXEL = pathTracingSamples;
+	std::cout << "Current samples per pixel: " << SAMPLES_PER_PIXEL << endl;
 }
 
 /*
@@ -589,17 +484,14 @@ void RayTracer::traceImageCPU(int w, int h)
     // Number of samples per pixel
     const unsigned int SAMPLES = 128;
 
-	int debugInterval = 16;
+	// int debugInterval = 16;
 	static uniform_real_distribution<double> unif(-APERTURE, APERTURE);
 	static default_random_engine re;
-
-	std::cout << "Current samples per pixel: " << SAMPLES_PER_PIXEL << endl;
 
 	for(int threadId = 0; threadId < threads; ++threadId){
 		pixThreads[threadId] = std::thread([=]() {
 			auto start = chrono::steady_clock::now();
 			
-			int count = 0;
 			// Compute pixels for this thread
 			for (int index1d = threadId; index1d < w * h; index1d += threads) {
 				int i = index1d / h;
@@ -610,7 +502,7 @@ void RayTracer::traceImageCPU(int w, int h)
 				} else if (traceUI->aaSwitch()) { 
 					tracePixelAA(i, j);
 				} else {
-					tracePixelPath(buffer.data(), scene.get(), &bvhTree, i, j, w, h, traceUI->getDepth());
+					tracePixelPath(buffer.data(), scene.get(), &bvhTree, i, j, w, h, traceUI->getDepth(), SAMPLES_PER_PIXEL);
 					// tracePixel(i, j);
 				}
 			}
@@ -619,36 +511,11 @@ void RayTracer::traceImageCPU(int w, int h)
 	}
 }
 
-__global__
-void traceImageKernel(unsigned char* buf, int w, int h){
-	int n = w * h;
-	int index = blockIdx.x * blockDim.x + threadIdx.x;
-	int stride = blockDim.x * gridDim.x;
 
-	for (int i = index; i < n; i += stride) {
-		int pixel = i * 3;
-		buf[pixel] = 128;
-		buf[pixel + 1] = 0;
-		buf[pixel + 2] = 128;
-	}
-}
-
-void RayTracer::traceImageGPU(int w, int h){
-	unsigned char* buf = copy_host_to_device(buffer.data(), buffer.size() * sizeof(unsigned char));
-
-	int N = w * h * 3;
-	int blockSize = 256;
-	int numBlocks = (N + blockSize - 1) / blockSize;
-
-	traceImageKernel<<<numBlocks, blockSize>>>(buf, w, h);
-	cudaDeviceSynchronize();
-	cudaMemcpy(buffer.data(), buf, buffer.size() * sizeof(unsigned char), cudaMemcpyDeviceToHost);
-	cudaDeviceSynchronize();
-}
 
 void RayTracer::traceImage(int w, int h){
 	// Always call traceSetup before rendering anything.
-	traceSetup(w,h, useGPU);
+	traceSetup(w,h, useGPU, SAMPLES_PER_PIXEL);
 	if(useGPU){
 		traceImageGPU(w, h);
 	} else {

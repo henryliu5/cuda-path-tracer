@@ -1,3 +1,12 @@
 ./main.cu
-./RayTracer.cu
 ./path_tracer.cu
+
+./gpu/GPUManaged.cuh
+./gpu/GPUTrimesh.cuh
+./gpu/GPURay.cuh
+./gpu/GPURay.cu
+./gpu/GPUMaterial.cuh
+./gpu/GPUScene.cuh
+./gpu/GPUIsect.cuh
+./gpu/GPUCamera.cu
+./gpu/GPUCamera.cuh

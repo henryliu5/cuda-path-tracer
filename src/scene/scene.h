@@ -48,12 +48,6 @@ public:
 
 	Scene* getScene() const { return scene; }
 
-	// For debugging purposes, draws using OpenGL
-	virtual void glDraw(int quality, bool actualMaterials,
-	                    bool actualTextures) const
-	{
-	}
-
 protected:
 	SceneElement(Scene* s) : scene(s) {}
 

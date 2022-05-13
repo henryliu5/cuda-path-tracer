@@ -151,8 +151,9 @@ public:
 	// mapped; use this to determine if we need to somehow renormalize.
 	bool mapped() const { return _textureMap != 0; }
 
+  glm::dvec3 _value;
 private:
-    glm::dvec3 _value;
+    
     TextureMap* _textureMap;
 };
 
@@ -250,14 +251,14 @@ public:
 	bool Spec() const { return _spec; }
 	bool Both() const { return _both; }
 
-private:
+
     MaterialParameter _ke;                    // emissive
     MaterialParameter _ka;                    // ambient
     MaterialParameter _ks;                    // specular
     MaterialParameter _kd;                    // diffuse
     MaterialParameter _kr;                    // reflective
     MaterialParameter _kt;                    // transmissive
-
+private:
   bool _diff;
 	bool _refl;								  // specular reflector?
 	bool _trans;							  // specular transmitter?

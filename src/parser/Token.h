@@ -97,9 +97,9 @@ class Token {
     // Note that these errors should not ever be encountered at runtime,
     // and signify parser bugs of some kind.
     virtual std::string ident() const   
-      { throw ParserFatalException("not an IdentToken"); return std::string(); }
+      { throw ParserFatalException("not an IdentToken"); }
     virtual double value() const   
-      { throw ParserFatalException("not a ScalarToken"); return 0.0; }
+      { throw ParserFatalException("not a ScalarToken"); }
 
 
     // Utility functions

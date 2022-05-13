@@ -14,7 +14,7 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
    }
 }
 
-__device__ double d_distance(double* a, double* b, int a_idx, int b_idx, int dims)
+__device__ inline double d_distance(double* a, double* b, int a_idx, int b_idx, int dims)
 {
     double sum = 0;
     for (int i = 0; i < dims; i++) {
@@ -24,12 +24,12 @@ __device__ double d_distance(double* a, double* b, int a_idx, int b_idx, int dim
     return sqrt(sum);
 }
 
-void do_cudaFree(double* a){
+inline void do_cudaFree(double* a){
     cudaFree(a);
 }
 
 // CUDA Kernel function to print
-__global__ void print(double* data, double* cent, int dims, int num_pts, int k)
+__global__ inline void print(double* data, double* cent, int dims, int num_pts, int k)
 {
     printf("device dims: %d, num_pts: %d, k: %d\n", dims, num_pts, k);
     printf("device data last: %lf\n", data[num_pts * dims - 1]);

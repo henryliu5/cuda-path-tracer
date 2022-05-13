@@ -27,7 +27,8 @@ CommandLineUI::CommandLineUI(int argc, char** argv) : TraceUI()
 	const char* jsonfile = nullptr;
 	useGPU = false;
 	string cubemap_file;
-	while ((i = getopt(argc, argv, "tr:w:hj:c:g")) != EOF) {
+	samples = 32;
+	while ((i = getopt(argc, argv, "tr:w:hj:c:gs:")) != EOF) {
 		switch (i) {
 			case 'r':
 				m_nDepth = atoi(optarg);
@@ -46,6 +47,9 @@ CommandLineUI::CommandLineUI(int argc, char** argv) : TraceUI()
 				exit(1);
 			case 'g':
 				useGPU = true;
+				break;
+			case 's':
+				samples = atoi(optarg);
 				break;
 
 			default:
@@ -80,8 +84,7 @@ int CommandLineUI::run()
 	if (raytracer->sceneLoaded()) {
 		int width = m_nSize;
 		int height = (int)(width / raytracer->aspectRatio() + 0.5);
-
-		raytracer->traceSetup(width, height, useGPU);
+		raytracer->traceSetup(width, height, useGPU, samples);
 
 		clock_t start, end;
 		start = clock();
@@ -128,5 +131,7 @@ void CommandLineUI::usage()
 	     << "  -r <#>      set recursion level (default " << m_nDepth << ")" << endl
 	     << "  -w <#>      set output image width (default " << m_nSize << ")" << endl
 	     << "  -j <FILE>   set parameters from JSON file" << endl
-	     << "  -c <FILE>   one Cubemap file, the remainings will be detected automatically" << endl;
+	     << "  -c <FILE>   one Cubemap file, the remainings will be detected automatically" << endl
+		 << "  -g          Enable CUDA rendering" << endl
+		 << "  -s <#>      Set number of samples per pixel (path tracing)" << endl;
 }

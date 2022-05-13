@@ -24,6 +24,7 @@ private:
 	char*	rayName;
 	char*	imgName;
 	char*	progName;
+	int samples;
 };
 
 #endif
