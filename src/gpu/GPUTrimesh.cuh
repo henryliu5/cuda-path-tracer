@@ -20,15 +20,23 @@ public:
 	glm::dvec3& a_coords;
 	glm::dvec3& b_coords;
 	glm::dvec3& c_coords;
+    glm::dvec3& norm_a;
+	glm::dvec3& norm_b;
+	glm::dvec3& norm_c;
     glm::dvec3 normal;
     GPU::Material* material;
     bool degen;
+    bool vertNorms;
 
-    TrimeshFace(glm::dvec3* vertices, GPU::Material* material, int a, int b, int c) :
+    TrimeshFace(glm::dvec3* vertices, glm::dvec3* normals, GPU::Material* material, int a, int b, int c, bool norms) :
         material(material), GPU::Geometry(TRIMESH_FACE)
         , a_coords(vertices[a])
         , b_coords(vertices[b])
         , c_coords(vertices[c])
+        , norm_a(normals[a])
+        , norm_b(normals[b])
+        , norm_c(normals[c])
+        , vertNorms(norms)
     {
 		glm::dvec3 vab = (b_coords - a_coords);
 		glm::dvec3 vac = (c_coords - a_coords);
@@ -77,8 +85,24 @@ public:
                 glm::dot(glm::cross(vcb, vpb), normal) >= 0 &&
                 glm::dot(glm::cross(vac, vpc), normal) >= 0;
 
+        double alpha = glm::length(glm::cross(b_coords - p, c_coords - p));
+		double beta = glm::length(glm::cross(p - a_coords, c_coords - a_coords));
+		// double gamma = glm::length(glm::cross(b_coords - a_coords, p - a_coords));
+		double denom = glm::length(glm::cross(vba, c_coords - a_coords));
+
+		alpha /= denom;
+		beta /= denom;
+		// gamma /= denom;
+		// TODO sus?
+		// i.setT(gamma);
+		// i.setUVCoordinates(glm::dvec2(alpha, beta));
+
         if(res){
-            i.setN(glm::normalize(normal));
+            if(vertNorms){
+			    i.setN(glm::normalize(alpha * norm_a + beta * norm_b + (1-alpha-beta) * norm_c));
+            } else{	
+                i.setN(glm::normalize(normal));
+            }
             i.setMaterial(material);
             i.setT(t);
         }
@@ -92,10 +116,12 @@ public:
     glm::dvec3* vertices;
     GPU::TrimeshFace** faces;
     GPU::Material** materials;
+    glm::dvec3* normals;
 
     int n_vertices;
     int n_faces;
     int n_materials;
+    int n_normals;
 
     Trimesh(::Trimesh& other, std::unordered_map<::Geometry*, GPU::Geometry*>& cpuToGpuGeo) : GPU::Geometry(TRIMESH) {
         // Copy vertices (easiest)
@@ -114,7 +140,17 @@ public:
             materials[i] = new GPU::Material(m->_kd._value, m->_ke._value, m->_ks._value, m->_kr._value, m->_kt._value, m->_shininess._value, m->_index._value);
             cout << "Diffuse " <<  materials[i]->kd().x << " " << materials[i]->kd().y << " " << materials[i]->kd().z << " " << materials[i]->Diff() << "\n";
             cout << "Specular " << materials[i]->ks().x << " " << materials[i]->ks().y << " " << materials[i]->ks().z << " " << materials[i]->Spec() << "\n";
-        }       
+        } 
+
+        // Copy Normals
+        if (other.normals.size() == n_vertices) {
+            n_normals = other.normals.size();
+            gpuErrchk(cudaMallocManaged(&normals, n_normals * sizeof(glm::dvec3)));
+            for(int i = 0; i < n_normals; i++) {
+                normals[i] = other.normals[i];
+            }
+
+        }
 
         // Copy faces
         n_faces = other.faces.size();
@@ -123,7 +159,7 @@ public:
             int a = other.faces[i]->ids[0];
             int b = other.faces[i]->ids[1];
             int c = other.faces[i]->ids[2];
-            faces[i] = new GPU::TrimeshFace(vertices, materials[i], a, b, c);
+            faces[i] = new GPU::TrimeshFace(vertices, normals, materials[i], a, b, c, true);
             cpuToGpuGeo[other.faces[i]] = faces[i];
         }
     }
