@@ -28,14 +28,6 @@ inline void do_cudaFree(double* a){
     cudaFree(a);
 }
 
-// CUDA Kernel function to print
-__global__ inline void print(double* data, double* cent, int dims, int num_pts, int k)
-{
-    printf("device dims: %d, num_pts: %d, k: %d\n", dims, num_pts, k);
-    printf("device data last: %lf\n", data[num_pts * dims - 1]);
-    printf("device cent last: %lf\n", cent[k * dims - 1]);
-}
-
 // Copy a host array to device and return a pointer to device memory
 template <typename T>
 T* copy_host_to_device(T* host_a, int size){

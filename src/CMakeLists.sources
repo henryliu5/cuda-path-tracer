@@ -10,3 +10,7 @@
 ./gpu/GPUIsect.cuh
 ./gpu/GPUCamera.cu
 ./gpu/GPUCamera.cuh
+./gpu/GPUBVH.cu
+./gpu/GPUBVH.cuh
+./gpu/GPUGeometry.cu
+./gpu/GPUGeometry.cuh

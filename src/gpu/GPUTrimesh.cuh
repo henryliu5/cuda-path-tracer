@@ -9,10 +9,12 @@
 #include "GPUIsect.cuh"
 #include "GPUMaterial.cuh"
 #include "../SceneObjects/trimesh.h"
+#include "GPUGeometry.cuh"
+#include <unordered_map>
 
 namespace GPU {
 
-class TrimeshFace : public GPUManaged {
+class TrimeshFace : public GPU::Geometry {
 public:
     glm::dvec3* vertices;
 	glm::dvec3& a_coords;
@@ -22,8 +24,8 @@ public:
     GPU::Material* material;
     bool degen;
 
-    CUDA_CALLABLE_MEMBER TrimeshFace(glm::dvec3* vertices, GPU::Material* material, int a, int b, int c) :
-        material(material)
+    TrimeshFace(glm::dvec3* vertices, GPU::Material* material, int a, int b, int c) :
+        material(material), GPU::Geometry(TRIMESH_FACE)
         , a_coords(vertices[a])
         , b_coords(vertices[b])
         , c_coords(vertices[c])
@@ -84,7 +86,7 @@ public:
     }
 };
 
-class Trimesh : public GPUManaged {
+class Trimesh : public GPU::Geometry {
 
 public:
     glm::dvec3* vertices;
@@ -95,7 +97,7 @@ public:
     int n_faces;
     int n_materials;
 
-    Trimesh(::Trimesh& other){
+    Trimesh(::Trimesh& other, std::unordered_map<::Geometry*, GPU::Geometry*>& cpuToGpuGeo) : GPU::Geometry(TRIMESH) {
         // Copy vertices (easiest)
         n_vertices = other.vertices.size();
         gpuErrchk(cudaMallocManaged(&vertices, n_vertices * sizeof(glm::dvec3)));
@@ -122,6 +124,7 @@ public:
             int b = other.faces[i]->ids[1];
             int c = other.faces[i]->ids[2];
             faces[i] = new GPU::TrimeshFace(vertices, materials[i], a, b, c);
+            cpuToGpuGeo[other.faces[i]] = faces[i];
         }
     }
 

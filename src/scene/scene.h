@@ -145,6 +145,13 @@ protected:
 	virtual bool intersectLocal(ray& r, isect& i) const = 0;
 
 public:
+	// For GPU
+	enum GeometryType { NONE, TRIMESH, SPHERE }; 
+	GeometryType myType;
+	void setType(GeometryType g){
+		myType = g;
+	}
+
 	// intersections performed in the global coordinate space.
 	bool intersect(ray& r, isect& i) const;
 

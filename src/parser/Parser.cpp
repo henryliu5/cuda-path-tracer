@@ -384,6 +384,7 @@ void Parser::parseSphere(Scene* scene, TransformNode* transform, const Material&
       case RBRACE:
         _tokenizer.Read( RBRACE );
         sphere = new Sphere(scene, newMat ? newMat : new Material(mat));
+        sphere->setType(Geometry::GeometryType::SPHERE);
         sphere->setTransform( transform );
         scene->add( sphere );
         return;
@@ -684,6 +685,7 @@ void Parser::parseTrimesh(Scene* scene, TransformNode* transform, const Material
         if ((error = tmesh->doubleCheck()))
           throw ParserException(error);
 
+        tmesh->setType(Geometry::GeometryType::TRIMESH);
         scene->add( tmesh );
         return;
       }

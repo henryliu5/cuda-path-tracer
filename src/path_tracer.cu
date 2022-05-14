@@ -13,11 +13,11 @@ __host__ __device__ double specAtten(GPU::Isect& i){
 	// constexpr double a = 0.000045492;
 	// constexpr double b = 0.003372407;
 	// constexpr double c = 0.25;
-	constexpr double a = 0.1;
-	constexpr double b = 0.003372407;
-	constexpr double c = 0.25;
+	// constexpr double a = 0.1;
+	// constexpr double b = 0.003372407;
+	// constexpr double c = 0.25;
 	return 1;
-	return min(1.0, 1/(a * d*d + b * d + c));
+	// return min(1.0, 1/(a * d*d + b * d + c));
 }
 
 // Do recursive ray tracing!  You'll want to insert a lot of code here
@@ -459,6 +459,7 @@ void RayTracer::traceImageGPU(int w, int h){
 
 	// Load scene on GPU
     GPU::Scene* d_gpuScene = new GPU::Scene(scene.get());
+	d_gpuScene->copyBVH(&bvhTree);
 
 	// Copy over buffer for writing
 	unsigned char* buf = copy_host_to_device(buffer.data(), buffer.size() * sizeof(unsigned char));
