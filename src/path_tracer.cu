@@ -512,8 +512,7 @@ void RayTracer::traceImageGPU(int w, int h){
     const double FOCAL_DISTANCE = 8.5;
     // Side length of camera aperture (square)
     const double APERTURE = 0.6;
-    // Number of samples per pixel
-    const unsigned int SAMPLES = 128;
+	
 	int N = w * h;
 	
 	// Load scene on GPU
@@ -541,9 +540,9 @@ void RayTracer::traceImageGPU(int w, int h){
 	// testKernel<<<numBlocks, blockSize>>>(buf, w, h, rand_state);
 	// testKernel<<<blocks, threads>>>(buf, w, h, d_rand_state);
 	if(USE_DOF) {
-		pathTraceDOFKernel<<<blocks, threads>>>(buf, w, h, d_gpuScene, traceUI->getDepth(), SAMPLES_PER_PIXEL, d_rand_state, FOCAL_DISTANCE, APERTURE);
+		pathTraceDOFKernel<<<blocks, threads>>>(d_buf, w, h, d_gpuScene, traceUI->getDepth(), SAMPLES_PER_PIXEL, d_rand_state, FOCAL_DISTANCE, APERTURE);
 	} else {
-		pathTraceKernel<<<blocks, threads>>>(buf, w, h, d_gpuScene, traceUI->getDepth(), SAMPLES_PER_PIXEL, d_rand_state);
+		pathTraceKernel<<<blocks, threads>>>(d_buf, w, h, d_gpuScene, traceUI->getDepth(), SAMPLES_PER_PIXEL, d_rand_state);
 	}
 	gpuErrchk(cudaDeviceSynchronize());
 	// Copy buffer back
