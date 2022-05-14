@@ -1,9 +1,17 @@
 SBT-raytracer 1.0
 
 	camera {
-		position = ( -.25,2.5,5.0 );
+		position = ( -.25,2.5,4.0 );
 		aspectratio = 1;
 	}
+
+point_light {
+	position = (-0.234011,5.318497,-3.042968);
+	colour = (1.0,1.0,1.0);
+	constant_attenuation_coeff= 0.25;
+	linear_attenuation_coeff = 0.003372407;
+	quadratic_attenuation_coeff = 0.000045492;
+}
 
 polymesh { 
 	name="area_light";
@@ -25,7 +33,7 @@ polymesh {
 		shininess=96.078431;
 		ambient=(1.0,1.0,1.0);
 		diffuse=(0.73,0.73,0.73);
-		specular=(0.5,0.5,0.5);
+		specular=(0.0,0.0,0.0);
 		emissive=(0.0,0.0,0.0);
 	};
 	points=((-2.950011,-0.162686,-5.835598),(2.545989,-0.162686,-5.835598),(2.545989,5.325313,-5.839967),(-3.014011,5.325313,-5.839967));
@@ -92,7 +100,7 @@ polymesh {
 		shininess=96.078431;
 		ambient=(1.0,1.0,1.0);
 		diffuse=(0.73,0.73,0.73);
-		specular=(0.1,0.1,0.1);
+		specular=(0.9,0.9,0.9);
 		emissive=(0.0,0.0,0.0);
 	};
 	points = (
@@ -133,7 +141,7 @@ polymesh {
 		shininess=96.078431;
 		ambient=(1.0,1.0,1.0);
 		diffuse=(0.73,0.73,0.73);
-		specular=(0.5,0.5,0.5);
+		specular=(0.9,0.9,0.9);
 		emissive=(0.0,0.0,0.0);
 	};
 	points = (
