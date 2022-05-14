@@ -21,9 +21,22 @@ usage: ./bin/ray [options] [input.ray output.png]
 Note that the GPU path tracer only supports .ray scenes consisting of only polymeshs.
 To emulate area lights set the ke constant of a polymesh.
 
+## Features
+Our path tracer implements
+- Monte Carlo estimation of rendering equation
+- Diffuse, perfectly specular, dielectric/conductor BRDFs
+- Importance sampling of cosine weighted hemisphere
+- Russian roulette termination
+- Depth of field
+- CUDA iterative BVH traversal
+- CUDA iterative path tracing
+- 2 CUDA kernel implementations
+  - CUDA work queue/coalescing
+
+
 We have included scenes and example renders in important_assets
   ## special_scenes 
-    This folder includes more interesting scenes with significantly more faces (such as the dragon scenes) as well as caustic scenes (such as the teapot scenes). The naming convention in this folder contains information about if it is diffuse (no indication), specular (contains a '-spec-'), or transmissive ('-trans-') as well as whether it was setup for ray-tracer rendering (contains a '-ray'). For example, the scene 'teapot-trans.ray' is the teapot scene with a transmissive constant meant for the path tracer. 
+  This folder includes more interesting scenes with significantly more faces (such as the dragon scenes) as well as caustic scenes (such as the teapot scenes). The naming convention in this folder contains information about if it is diffuse (no indication), specular (contains a '-spec-'), or transmissive ('-trans-') as well as whether it was setup for ray-tracer rendering (contains a '-ray'). For example, the scene 'teapot-trans.ray' is the teapot scene with a transmissive constant meant for the path tracer. 
   ## scenes
   This folder contains the standard cornell-box2 scenes that are either diffuse, specular (contains a '-specular'), or transmissive (contains a 'transmissive') as well as whether it was setup for ray-tracer rendering (contains a '-ray'). These were used mostly to affirm that our path tracer was working (which was affirmed through evidence of global illumination, soft shadows, etc.) as well as to get benchmarks on our implementations. These timings are in the timings folder along with the script used to get the timings. Both the CPU and GPU have two timing txt files, one without BVH and one with BVH (file name contains a '_bvh'). Each line in all 4 of these files be setup as follows:
   {file_name} - {Implementation}|{SPP},{Depth}: {End-to-End Time}
@@ -39,4 +52,4 @@ Note that the file_name does include the .ray extension and the scene is still i
   
   
   
-  We have completed the ECIS for this course.
+We affirm that we have completed the ECIS for this course.
