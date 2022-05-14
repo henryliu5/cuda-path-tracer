@@ -6,6 +6,7 @@
 #include <curand_kernel.h>
 
 extern TraceUI* traceUI;
+#define APETURE 0.2
 
 // Test light attenuation for perfectly specular surfaces
 __host__ __device__ double specAtten(GPU::Isect& i){
@@ -443,6 +444,54 @@ void pathTraceKernel(unsigned char* buf, int w, int h, GPU::Scene* scene, int ma
 }
 
 __global__
+void pathTraceDOFKernel(unsigned char* buf, int w, int h, GPU::Scene* scene, int maxDepth, int samplesPerPixel, curandState *rand_state, double focal_distance, double aperture) {
+	int i = threadIdx.x + blockIdx.x * blockDim.x;
+    int j = threadIdx.y + blockIdx.y * blockDim.y;
+    if((i >= w) || (j >= h)) return;
+
+	int pixelIndex = i + j * w;
+
+	//Each thread gets same seed, a different sequence number, no offset
+   	curand_init(1984, pixelIndex, 0, &rand_state[pixelIndex]);
+	// Local random state for this pixel
+	curandState local_rand_state = rand_state[pixelIndex];
+
+	//Average samples
+	glm::dvec3 colSum(0, 0, 0);
+
+	//Get Focal Point
+	glm::dvec3 eye = scene->camera.getEye();
+	double x = double(i)/double(w);
+	double y = double(j)/double(h);
+    GPU::Ray temp(glm::dvec3(0, 0, 0), glm::dvec3(0, 0, 0));
+    scene->camera.rayThrough(x, y, temp);
+	glm::dvec3 focalPoint = temp.at(focal_distance);
+
+	for(int sample = 0; sample < samplesPerPixel; sample++){
+		double iShift = curand_uniform_double(&local_rand_state);
+		double jShift = curand_uniform_double(&local_rand_state);
+
+		iShift *= (2 * aperture) - aperture;
+		jShift *= (2 * aperture) - aperture;
+
+		glm::dvec3 jitteredEye = eye + scene->camera.getU() * iShift + scene->camera.getV() * jShift;
+        // cout << "jitteredEye: " << jitteredEye << endl;
+        GPU::Ray r(jitteredEye, glm::normalize(focalPoint - jitteredEye));
+
+		auto color = pathTraceRayGPU(r, scene, maxDepth, local_rand_state, pixelIndex == 100);
+		colSum += color;
+	}
+	colSum = glm::dvec3(colSum.x / samplesPerPixel, colSum.y / samplesPerPixel, colSum.z / samplesPerPixel);
+	colSum = glm::clamp(colSum, 0.0, 1.0);
+
+	// Set values in buffer
+	int pixel = pixelIndex * 3;
+	buf[pixel] = (int)( 255.0 * colSum.x);
+	buf[pixel + 1] = (int)( 255.0 * colSum.y);
+	buf[pixel + 2] = (int)( 255.0 * colSum.z);
+}
+
+__global__
 void testKernel(unsigned char* buf, int w, int h, curandState *rand_state){
 	int i = threadIdx.x + blockIdx.x * blockDim.x;
     int j = threadIdx.y + blockIdx.y * blockDim.y;
@@ -455,8 +504,17 @@ void testKernel(unsigned char* buf, int w, int h, curandState *rand_state){
 }
 
 void RayTracer::traceImageGPU(int w, int h){
+	// Enable/disable depth of field with below config
+	const bool USE_DOF = false;
+    // Good config for easy3: fd = 8.5, a = 0.2
+	// Good config for reflection2: fd = 6, a = 0.3
+    const double FOCAL_DISTANCE = 8.5;
+    // Side length of camera aperture (square)
+    const double APERTURE = 0.6;
+    // Number of samples per pixel
+    const unsigned int SAMPLES = 128;
 	int N = w * h;
-
+	
 	// Load scene on GPU
     GPU::Scene* d_gpuScene = new GPU::Scene(scene.get());
 	d_gpuScene->copyBVH(&bvhTree);
@@ -481,7 +539,11 @@ void RayTracer::traceImageGPU(int w, int h){
 	// pathTraceKernel<<<numBlocks, blockSize>>>(buf, w, h, d_gpuScene, traceUI->getDepth(), SAMPLES_PER_PIXEL);
 	// testKernel<<<numBlocks, blockSize>>>(buf, w, h, rand_state);
 	// testKernel<<<blocks, threads>>>(buf, w, h, d_rand_state);
-	pathTraceKernel<<<blocks, threads>>>(buf, w, h, d_gpuScene, traceUI->getDepth(), SAMPLES_PER_PIXEL, d_rand_state);
+	if(USE_DOF) {
+		pathTraceDOFKernel<<<blocks, threads>>>(buf, w, h, d_gpuScene, traceUI->getDepth(), SAMPLES_PER_PIXEL, d_rand_state, FOCAL_DISTANCE, APERTURE);
+	} else {
+		pathTraceKernel<<<blocks, threads>>>(buf, w, h, d_gpuScene, traceUI->getDepth(), SAMPLES_PER_PIXEL, d_rand_state);
+	}
 	gpuErrchk(cudaDeviceSynchronize());
 	// Copy buffer back
 	cudaMemcpy(buffer.data(), buf, buffer.size() * sizeof(unsigned char), cudaMemcpyDeviceToHost);

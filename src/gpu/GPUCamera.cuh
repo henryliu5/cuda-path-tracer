@@ -24,10 +24,10 @@ public:
 
     double getAspectRatio() { return aspectRatio; }
 
-	const glm::dvec3& getEye() const			{ return eye; }
+	CUDA_CALLABLE_MEMBER const glm::dvec3& getEye() const			{ return eye; }
 	const glm::dvec3& getLook() const		{ return look; }
-	const glm::dvec3& getU() const			{ return u; }
-	const glm::dvec3& getV() const			{ return v; }
+	CUDA_CALLABLE_MEMBER const glm::dvec3& getU() const			{ return u; }
+	CUDA_CALLABLE_MEMBER const glm::dvec3& getV() const			{ return v; }
 private:
     glm::dmat3 m;                     // rotation matrix
     double normalizedHeight;    // dimensions of image place at unit dist from eye
