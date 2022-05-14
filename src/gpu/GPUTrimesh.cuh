@@ -20,9 +20,9 @@ public:
 	glm::dvec3& a_coords;
 	glm::dvec3& b_coords;
 	glm::dvec3& c_coords;
-    glm::dvec3& norm_a;
-	glm::dvec3& norm_b;
-	glm::dvec3& norm_c;
+    glm::dvec3 norm_a;
+	glm::dvec3 norm_b;
+	glm::dvec3 norm_c;
     glm::dvec3 normal;
     GPU::Material* material;
     bool degen;
@@ -33,9 +33,6 @@ public:
         , a_coords(vertices[a])
         , b_coords(vertices[b])
         , c_coords(vertices[c])
-        , norm_a(normals[a])
-        , norm_b(normals[b])
-        , norm_c(normals[c])
         , vertNorms(norms)
     {
 		glm::dvec3 vab = (b_coords - a_coords);
@@ -51,6 +48,12 @@ public:
 			                    c_coords - a_coords);
 			normal = glm::normalize(normal);
 		}
+
+        if(norms){
+            norm_a = normals[a];
+            norm_b = normals[b];
+            norm_c = normals[c];
+        }
     }
 
     CUDA_CALLABLE_MEMBER bool intersect(GPU::Ray& r, GPU::Isect& i)
@@ -159,7 +162,7 @@ public:
             int a = other.faces[i]->ids[0];
             int b = other.faces[i]->ids[1];
             int c = other.faces[i]->ids[2];
-            faces[i] = new GPU::TrimeshFace(vertices, normals, materials[i], a, b, c, true);
+            faces[i] = new GPU::TrimeshFace(vertices, normals, materials[i], a, b, c, other.normals.size() == n_vertices);
             cpuToGpuGeo[other.faces[i]] = faces[i];
         }
     }
