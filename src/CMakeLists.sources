@@ -1,6 +1,6 @@
 ./main.cu
 ./path_tracer.cu
-./naive_path_tracer.cu
+./improved_path_tracer.cu
 
 ./gpu/GPUManaged.cuh
 ./gpu/GPUTrimesh.cuh
