@@ -52,6 +52,7 @@ public:
     /*************
      * GPU stuff *
      *************/
+	void betterPathTracing(int w, int h);
 	void traceImageGPU(int w, int h);
 
 	int aaImage();

@@ -15,13 +15,14 @@ namespace GPU {
 // Idea from: https://developer.nvidia.com/blog/unified-memory-in-cuda-6/
 class GPUManaged {
 public:
+  CUDA_CALLABLE_MEMBER
   void *operator new(size_t len) {
     void *ptr;
     cudaMallocManaged(&ptr, len);
     cudaDeviceSynchronize();
     return ptr;
   }
-
+  CUDA_CALLABLE_MEMBER
   void operator delete(void *ptr) {
     cudaDeviceSynchronize();
     cudaFree(ptr);

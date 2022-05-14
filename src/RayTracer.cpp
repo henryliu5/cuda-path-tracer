@@ -700,6 +700,7 @@ void RayTracer::traceImage(int w, int h){
 	traceSetup(w,h, useGPU, SAMPLES_PER_PIXEL);
 	if(useGPU){
 		traceImageGPU(w, h);
+		// betterPathTracing(w, h);
 	} else {
 		traceImageCPU(w, h);
 	}

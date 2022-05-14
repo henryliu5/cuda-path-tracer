@@ -39,6 +39,7 @@ link_libraries(${CUDA_LIBRARY_DIRS})
 
 add_executable(ray ${src} ${custom_src})
 # target_compile_features(ray PUBLIC cxx_std_14)
+# target_compile_options(ray PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-use_fast_math --ptxas-options=-v>)
 set_target_properties(ray PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
 # function(CUDA_CONVERT_FLAGS EXISTING_TARGET)

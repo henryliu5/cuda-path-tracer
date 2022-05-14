@@ -1,5 +1,6 @@
 ./main.cu
 ./path_tracer.cu
+./naive_path_tracer.cu
 
 ./gpu/GPUManaged.cuh
 ./gpu/GPUTrimesh.cuh
@@ -14,3 +15,4 @@
 ./gpu/GPUBVH.cuh
 ./gpu/GPUGeometry.cu
 ./gpu/GPUGeometry.cuh
+
