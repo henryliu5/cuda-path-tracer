@@ -22,10 +22,11 @@ public:
 
     GPU::BVH* gpuBVH;
 
-    __host__ Scene(::Scene* cpuScene) : camera() {
+    __host__ Scene(::Scene* cpuScene) : camera(cpuScene->getCamera()) {
 
-        // Update camera
-        camera.setEye(cpuScene->getCamera().getEye());
+        // // Update camera
+        // camera.setEye(cpuScene->getCamera().getEye());
+        // camera.setLook(cpuScene->getCamera().getV(), cpuScene->getCamera().getU());
 
         // Copy all objects in the scene
         n_objects = cpuScene->objects.size();

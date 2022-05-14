@@ -8,16 +8,15 @@ using namespace std;
 
 namespace GPU {
 
-Camera::Camera()
+Camera::Camera(::Camera c)
 {
-    aspectRatio = 1;
-    normalizedHeight = 1;
-    
-    eye = glm::dvec3(0,0,0);
-    u = glm::dvec3( 1,0,0 );
-    v = glm::dvec3( 0,1,0 );
-    look = glm::dvec3( 0,0,-1 );
-    m = glm::dmat3x3(1.0);
+    m = c.m;
+    normalizedHeight = c.normalizedHeight;
+    aspectRatio = c.aspectRatio;
+    eye = c.eye;
+    look = c.look;
+    u = c.u;
+    v = c.v;
 }
 
 void

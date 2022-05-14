@@ -4,6 +4,7 @@
 #include "GPUManaged.cuh"
 #include <cuda.h>
 // #include "GPURay.cuh"
+#include "../scene/camera.h"
 #include <glm/vec3.hpp>
 #include <glm/mat3x3.hpp>
 
@@ -13,7 +14,7 @@ class Ray;
 
 class Camera : public GPUManaged {
 public:
-    Camera();
+    Camera(::Camera);
 
     CUDA_CALLABLE_MEMBER void rayThrough( double x, double y, GPU::Ray &r );
     void setEye( const glm::dvec3 &eye );
